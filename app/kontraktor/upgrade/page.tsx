@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import axios from 'axios';
+import axios from '@/lib/axios';
 
 declare global {
   interface Window {
@@ -53,7 +53,7 @@ export default function UpgradePage() {
       setLoading(true);
 
       const response = await axios.post(
-        'http://127.0.0.1:8000/api/payments/create',
+        '/api/payments/create',
         {},
         {
           headers: {
@@ -76,7 +76,7 @@ export default function UpgradePage() {
           // Update di backend agar is_premium = 1
           try {
             await axios.post(
-              'http://127.0.0.1:8000/api/payment/mark-vip',
+              '/api/payment/mark-vip',
               {},
               { headers: { Authorization: `Bearer ${token}` } }
             );
