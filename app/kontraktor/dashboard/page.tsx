@@ -10,6 +10,8 @@ import {
   Legend,
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
+import api from "@/lib/axios";
+
 
 ChartJS.register(
   BarElement,
@@ -31,28 +33,24 @@ export default function DashboardPage() {
           setError('Token tidak ditemukan');
           return;
         }
-
-        const res = await fetch(
-          'http://localhost:8000/api/kontraktor/dashboard',
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: 'application/json',
-            },
-          }
-        );
-
-        if (!res.ok) throw new Error('Gagal mengambil data');
-
-        const json = await res.json();
-        setData(json);
-      } catch (err) {
-        setError('Gagal mengambil data dashboard');
+  
+        // pakai axios
+        const res = await api.get('/kontraktor/dashboard', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+  
+        setData(res.data);
+      } catch (err: any) {
+        console.error(err);
+        setError(err.response?.data?.message || 'Gagal mengambil data dashboard');
       }
     };
-
+  
     fetchDashboard();
   }, []);
+  
 
   if (error) return <p style={{ color: 'red' }}>{error}</p>;
   if (!data) return <p>Loading...</p>;
