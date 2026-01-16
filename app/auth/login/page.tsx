@@ -13,7 +13,7 @@ export default function LoginPage() {
     const password = (e.currentTarget.password as HTMLInputElement).value;
 
     try {
-      const res = await api.post("/login", {
+      const res = await api.post("/api/login", {
         email,
         password,
       });
