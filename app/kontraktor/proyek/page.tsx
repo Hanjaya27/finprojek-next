@@ -21,14 +21,20 @@ export default function ProyekPage() {
      FETCH DATA
   ========================== */
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    api
-      .get('/api/proyek', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .then(res => setProjects(res.data))
-      .catch(err => console.error(err));
-  }, []);
+    const fetchProyek = async () => {
+      try {
+        const res = await api.get('/api/proyek');
+        setProjects(res.data);
+      } catch (err: any) {
+        console.error('Gagal ambil proyek:', err);
+        if (err.response?.status === 401) {
+          router.push('/auth/login');
+        }
+      }
+    };
+
+    fetchProyek();
+  }, [router]);
 
   /* =========================
      UTILS
@@ -136,17 +142,10 @@ export default function ProyekPage() {
                   </td>
 
                   <td>
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                      }}
-                    >
+                    <div style={{ display: 'flex', gap: 8 }}>
                       <code className="code-badge">{p.kode_proyek}</code>
                       <button
                         className="btn btn-icon"
-                        title="Salin kode"
                         onClick={() => copyKode(p.kode_proyek)}
                       >
                         📋
@@ -170,8 +169,7 @@ export default function ProyekPage() {
                     <button
                       className="btn btn-icon"
                       onClick={e => {
-                        const rect =
-                          e.currentTarget.getBoundingClientRect();
+                        const rect = e.currentTarget.getBoundingClientRect();
                         setMenuPos(getMenuPosition(rect));
                         setOpenMenuId(
                           openMenuId === p.id_proyek ? null : p.id_proyek
@@ -193,11 +191,7 @@ export default function ProyekPage() {
         <div
           ref={menuRef}
           className="dropdown-menu popup"
-          style={{
-            top: menuPos.y,
-            left: menuPos.x,
-            width: 150,
-          }}
+          style={{ top: menuPos.y, left: menuPos.x }}
         >
           <button
             onClick={() => {
@@ -228,13 +222,7 @@ export default function ProyekPage() {
 
       {/* MODALS */}
       {showModal && <TambahProyekModal onClose={() => setShowModal(false)} />}
-
-      {editId && (
-        <EditProyekModal
-          id={editId}
-          onClose={() => setEditId(null)}
-        />
-      )}
+      {editId && <EditProyekModal id={editId} onClose={() => setEditId(null)} />}
     </main>
   );
 }
