@@ -18,23 +18,25 @@ export default function ProyekPage() {
   const router = useRouter();
 
   /* =========================
-     FETCH DATA
+     FETCH PROYEK
   ========================== */
   useEffect(() => {
-    const fetchProyek = async () => {
-      try {
-        const res = await api.get('/api/proyek');
-        setProjects(res.data);
-      } catch (err: any) {
-        console.error('Gagal ambil proyek:', err);
-        if (err.response?.status === 401) {
-          router.push('/auth/login');
-        }
-      }
-    };
+    const token = localStorage.getItem('token');
+    if (!token) return;
 
-    fetchProyek();
-  }, [router]);
+    api
+      .get('/proyek', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      .then(res => {
+        setProjects(res.data.data ?? res.data);
+      })
+      .catch(err => {
+        console.error('Gagal ambil proyek:', err.response?.data || err);
+      });
+  }, []);
 
   /* =========================
      UTILS
@@ -61,11 +63,21 @@ export default function ProyekPage() {
     return { x, y: rect.top };
   };
 
+  /* =========================
+     DELETE PROYEK
+  ========================== */
   const handleDelete = async (id: number) => {
     if (!confirm('Yakin ingin menghapus proyek ini?')) return;
 
+    const token = localStorage.getItem('token');
+
     try {
-      await api.delete(`/api/proyek/${id}`);
+      await api.delete(`/proyek/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
       setProjects(prev => prev.filter(p => p.id_proyek !== id));
     } catch (err: any) {
       alert(err.response?.data?.message || 'Proyek gagal dihapus');
@@ -73,7 +85,7 @@ export default function ProyekPage() {
   };
 
   /* =========================
-     CLOSE POPUP OUTSIDE
+     CLOSE MENU OUTSIDE
   ========================== */
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -92,19 +104,10 @@ export default function ProyekPage() {
   return (
     <main className="main-content">
       {/* HEADER */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 24,
-        }}
-      >
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
-          <h1 style={{ marginBottom: 4 }}>Manajemen Proyek</h1>
-          <p style={{ color: '#777', fontSize: 14 }}>
-            Daftar proyek yang sedang kamu kelola
-          </p>
+          <h1>Manajemen Proyek</h1>
+          <p style={{ color: '#777' }}>Daftar proyek yang sedang kamu kelola</p>
         </div>
 
         <button className="btn btn-primary" onClick={() => setShowModal(true)}>
@@ -112,68 +115,40 @@ export default function ProyekPage() {
         </button>
       </div>
 
-      {/* TABLE CARD */}
-      <div className="card" style={{ padding: 0 }}>
+      {/* TABLE */}
+      <div className="card">
         <table className="modern-table">
           <thead>
             <tr>
-              <th>Nama Proyek</th>
+              <th>Nama</th>
               <th>Kode</th>
-              <th>Pemilik</th>
               <th>Status</th>
-              <th style={{ width: 80, textAlign: 'center' }}>Aksi</th>
+              <th>Aksi</th>
             </tr>
           </thead>
 
           <tbody>
             {projects.length === 0 ? (
               <tr>
-                <td colSpan={5} style={{ textAlign: 'center', padding: 24 }}>
-                  <span style={{ color: '#777' }}>
-                    Belum ada proyek
-                  </span>
+                <td colSpan={4} style={{ textAlign: 'center' }}>
+                  Belum ada proyek
                 </td>
               </tr>
             ) : (
               projects.map(p => (
                 <tr key={p.id_proyek}>
+                  <td>{p.nama_proyek}</td>
                   <td>
-                    <strong>{p.nama_proyek}</strong>
+                    <code>{p.kode_proyek}</code>
+                    <button onClick={() => copyKode(p.kode_proyek)}>📋</button>
                   </td>
-
+                  <td>{p.status}</td>
                   <td>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <code className="code-badge">{p.kode_proyek}</code>
-                      <button
-                        className="btn btn-icon"
-                        onClick={() => copyKode(p.kode_proyek)}
-                      >
-                        📋
-                      </button>
-                    </div>
-                  </td>
-
-                  <td>-</td>
-
-                  <td>
-                    <span
-                      className={`status-badge ${
-                        p.status === 'aktif' ? 'success' : 'secondary'
-                      }`}
-                    >
-                      {p.status}
-                    </span>
-                  </td>
-
-                  <td style={{ textAlign: 'center' }}>
                     <button
-                      className="btn btn-icon"
                       onClick={e => {
                         const rect = e.currentTarget.getBoundingClientRect();
                         setMenuPos(getMenuPosition(rect));
-                        setOpenMenuId(
-                          openMenuId === p.id_proyek ? null : p.id_proyek
-                        );
+                        setOpenMenuId(p.id_proyek);
                       }}
                     >
                       ⋮
@@ -186,41 +161,23 @@ export default function ProyekPage() {
         </table>
       </div>
 
-      {/* DROPDOWN MENU */}
+      {/* DROPDOWN */}
       {openMenuId && menuPos && (
         <div
           ref={menuRef}
           className="dropdown-menu popup"
           style={{ top: menuPos.y, left: menuPos.x }}
         >
-          <button
-            onClick={() => {
-              setOpenMenuId(null);
-              router.push(`/kontraktor/proyek/detail/${openMenuId}`);
-            }}
-          >
-            Lihat Detail
+          <button onClick={() => router.push(`/kontraktor/proyek/detail/${openMenuId}`)}>
+            Detail
           </button>
-
-          <button
-            onClick={() => {
-              setEditId(openMenuId);
-              setOpenMenuId(null);
-            }}
-          >
-            Edit
-          </button>
-
-          <button
-            className="danger"
-            onClick={() => handleDelete(openMenuId)}
-          >
+          <button onClick={() => setEditId(openMenuId)}>Edit</button>
+          <button className="danger" onClick={() => handleDelete(openMenuId)}>
             Hapus
           </button>
         </div>
       )}
 
-      {/* MODALS */}
       {showModal && <TambahProyekModal onClose={() => setShowModal(false)} />}
       {editId && <EditProyekModal id={editId} onClose={() => setEditId(null)} />}
     </main>
