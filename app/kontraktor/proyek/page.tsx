@@ -21,15 +21,11 @@ export default function ProyekPage() {
      FETCH PROYEK
   ========================== */
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('auth_token');
     if (!token) return;
 
     api
-      .get('/proyek', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
+      .get('/proyek') // ⬅️ interceptor otomatis pasang Authorization
       .then(res => {
         setProjects(res.data.data ?? res.data);
       })
@@ -69,15 +65,8 @@ export default function ProyekPage() {
   const handleDelete = async (id: number) => {
     if (!confirm('Yakin ingin menghapus proyek ini?')) return;
 
-    const token = localStorage.getItem('token');
-
     try {
-      await api.delete(`/proyek/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
+      await api.delete(`/proyek/${id}`); // ⬅️ interceptor handle token
       setProjects(prev => prev.filter(p => p.id_proyek !== id));
     } catch (err: any) {
       alert(err.response?.data?.message || 'Proyek gagal dihapus');
