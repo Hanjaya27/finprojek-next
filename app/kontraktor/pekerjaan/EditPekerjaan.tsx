@@ -19,11 +19,11 @@ export default function EditPekerjaanModal({
     const fetchData = async () => {
       try {
         // 1️⃣ Ambil list proyek terlebih dahulu
-        const proyekRes = await api.get('/api/proyek');
+        const proyekRes = await api.get('/proyek');
         setProjects(proyekRes.data);
 
         // 2️⃣ Ambil detail pekerjaan
-        const pekerjaanRes = await api.get(`/api/pekerjaan/${id}`);
+        const pekerjaanRes = await api.get(`/pekerjaan/${id}`);
         const pekerjaan = pekerjaanRes.data.pekerjaan; // pastikan ambil objek pekerjaan
         setForm({
           id_proyek: pekerjaan.id_proyek,
@@ -48,7 +48,7 @@ export default function EditPekerjaanModal({
     e.preventDefault();
 
     try {
-      await api.put(`/api/pekerjaan/${id}`, {
+      await api.put(`/pekerjaan/${id}`, {
         id_proyek: form.id_proyek,
         nama_pekerjaan: form.nama_pekerjaan,
         keterangan: form.keterangan,

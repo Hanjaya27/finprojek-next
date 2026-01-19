@@ -13,7 +13,7 @@ export default function DetailPengeluaranPage() {
   const [details, setDetails] = useState<any[]>([]);
 
   useEffect(() => {
-    api.get(`/api/pengeluaran/${id}`)
+    api.get(`/pengeluaran/${id}`)
       .then(res => {
         setPengeluaran(res.data.pengeluaran);
         setDetails(res.data.details);

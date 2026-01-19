@@ -15,7 +15,7 @@ export default function TambahPekerjaan({
 
   useEffect(() => {
     api
-      .get('/api/proyek')
+      .get('/proyek')
       .then(res => setProjects(res.data))
       .catch(err => console.error(err));
   }, []);
@@ -35,7 +35,7 @@ export default function TambahPekerjaan({
     }
 
     try {
-      await api.post('/api/pekerjaan', formData);
+      await api.post('/pekerjaan', formData);
 
       // ✅ INI PENGGANTI location.reload()
       onSuccess();

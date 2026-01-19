@@ -28,17 +28,17 @@ export default function SubPekerjaanPage() {
 
   useEffect(() => {
     api
-      .get(`/api/pekerjaan/${idPekerjaan}`)
+      .get(`/pekerjaan/${idPekerjaan}`)
       .then(res => setNamaPekerjaan(res.data.nama_pekerjaan));
 
     api
-      .get(`/api/pekerjaan/${idPekerjaan}/sub-pekerjaan`)
+      .get(`/pekerjaan/${idPekerjaan}/sub-pekerjaan`)
       .then(res => setSubs(res.data));
   }, [idPekerjaan]);
 
   const handleDelete = async (id: number) => {
     if (!confirm('Yakin ingin menghapus sub pekerjaan ini?')) return;
-    await api.delete(`/api/sub-pekerjaan/${id}`);
+    await api.delete(`/sub-pekerjaan/${id}`);
     setSubs(prev => prev.filter(s => s.id_sub !== id));
     setOpenMenuId(null);
   };
@@ -145,7 +145,7 @@ export default function SubPekerjaanPage() {
           onSuccess={() => {
             setShowTambah(false);
             api
-              .get(`/api/pekerjaan/${idPekerjaan}/sub-pekerjaan`)
+              .get(`/pekerjaan/${idPekerjaan}/sub-pekerjaan`)
               .then(res => setSubs(res.data));
           }}
         />
@@ -158,7 +158,7 @@ export default function SubPekerjaanPage() {
           onSuccess={() => {
             setEditId(null);
             api
-              .get(`/api/pekerjaan/${idPekerjaan}/sub-pekerjaan`)
+              .get(`/pekerjaan/${idPekerjaan}/sub-pekerjaan`)
               .then(res => setSubs(res.data));
           }}
         />

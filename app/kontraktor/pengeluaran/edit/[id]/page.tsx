@@ -65,10 +65,10 @@ export default function EditPengeluaran() {
      FETCH DATA
   ========================== */
   useEffect(() => {
-    api.get('/api/proyek').then(res => setProjects(res.data));
-    api.get('/api/pekerjaan').then(res => setJobs(res.data));
+    api.get('/proyek').then(res => setProjects(res.data));
+    api.get('/pekerjaan').then(res => setJobs(res.data));
 
-    api.get(`/api/pengeluaran/${id}`).then(res => {
+    api.get(`/pengeluaran/${id}`).then(res => {
       const p = res.data.pengeluaran;
 
       setForm({
@@ -152,7 +152,7 @@ export default function EditPengeluaran() {
         dist.id_sub = '';
         if (value) {
           api
-            .get(`/api/pekerjaan/${value}/sub-pekerjaan`)
+            .get(`/pekerjaan/${value}/sub-pekerjaan`)
             .then(res => setSubs(res.data));
         }
       }
@@ -209,7 +209,7 @@ export default function EditPengeluaran() {
       }
     }
 
-    await api.put(`/api/pengeluaran/${id}`, {
+    await api.put(`/pengeluaran/${id}`, {
       ...form,
       id_proyek: Number(form.id_proyek),
       details: details.map(d => ({

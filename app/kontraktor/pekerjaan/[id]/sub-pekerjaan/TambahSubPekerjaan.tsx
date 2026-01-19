@@ -17,7 +17,7 @@ export default function TambahSubPekerjaanModal({
     const form = e.target;
 
     try {
-      await api.post('/api/sub-pekerjaan', {
+      await api.post('/sub-pekerjaan', {
         id_pekerjaan: idPekerjaan,
         nama_sub: form.nama_sub.value,
         tgl_mulai: form.tgl_mulai.value || null,

@@ -16,7 +16,7 @@ export default function DetailPekerjaanPage() {
     if (!id) return;
 
     api
-      .get(`/api/pekerjaan/${id}`)
+      .get(`/pekerjaan/${id}`)
       .then(res => {
         setPekerjaan(res.data.pekerjaan);
         setSubPekerjaan(res.data.sub_pekerjaan || []);

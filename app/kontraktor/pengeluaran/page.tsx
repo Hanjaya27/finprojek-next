@@ -34,17 +34,27 @@ export default function PengeluaranPage() {
 
   /* ================= FETCH ================= */
   useEffect(() => {
-    api.get('/api/pengeluaran').then(res => {
-      const normalized = res.data.map((p: any) => ({
-        ...p,
-        total: p.total ?? 0,
-        tgl_transaksi: p.tgl_transaksi ?? null,
-      }));
-      setData(normalized);
-    });
+    api.get('/pengeluaran')
+      .then(res => {
+        const list = res.data.data ?? res.data;
+        const normalized = list.map((p: any) => ({
+          ...p,
+          total: p.total ?? 0,
+          tgl_transaksi: p.tgl_transaksi ?? null,
+        }));
+        setData(normalized);
+      })
+      .catch(err => {
+        console.error('Gagal ambil pengeluaran:', err.response?.data || err);
+      });
 
-    api.get('/api/proyek').then(res => setProjects(res.data));
-    api.get('/api/pekerjaan').then(res => setJobs(res.data));
+    api.get('/proyek')
+      .then(res => setProjects(res.data.data ?? res.data))
+      .catch(err => console.error('Gagal ambil proyek:', err));
+
+    api.get('/pekerjaan')
+      .then(res => setJobs(res.data.data ?? res.data))
+      .catch(err => console.error('Gagal ambil pekerjaan:', err));
   }, []);
 
   /* ================= FILTER ================= */
@@ -82,9 +92,14 @@ export default function PengeluaranPage() {
 
   const handleDelete = async (id: number) => {
     if (!confirm('Yakin ingin menghapus pengeluaran ini?')) return;
-    await api.delete(`/api/pengeluaran/${id}`);
-    setData(prev => prev.filter(p => p.id_pengeluaran !== id));
-    setOpenMenuId(null);
+
+    try {
+      await api.delete(`/pengeluaran/${id}`);
+      setData(prev => prev.filter(p => p.id_pengeluaran !== id));
+      setOpenMenuId(null);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Gagal menghapus pengeluaran');
+    }
   };
 
   return (
@@ -141,7 +156,7 @@ export default function PengeluaranPage() {
         </button>
       </div>
 
-      {/* TABLE (HEADER STICKY, BODY SCROLL) */}
+      {/* TABLE */}
       <div className="table-card" style={{ maxHeight: '65vh', overflow: 'hidden' }}>
         <table className="modern-table">
           <thead style={{ position: 'sticky', top: 0, background: '#fff', zIndex: 2 }}>
@@ -168,7 +183,7 @@ export default function PengeluaranPage() {
               ) : (
                 filteredData.map(p => (
                   <tr key={p.id_pengeluaran}>
-                    <td className="nota">{p.no_nota}</td>
+                    <td>{p.no_nota}</td>
                     <td>
                       {p.tgl_transaksi
                         ? new Date(p.tgl_transaksi).toLocaleDateString('id-ID')
@@ -186,7 +201,7 @@ export default function PengeluaranPage() {
                         {p.spesifikasi}
                       </span>
                     </td>
-                    <td className="right total">
+                    <td className="right">
                       Rp {Number(p.total).toLocaleString('id-ID')}
                     </td>
                     <td className="center">

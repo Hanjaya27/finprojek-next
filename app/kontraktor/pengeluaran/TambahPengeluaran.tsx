@@ -57,8 +57,8 @@ export default function TambahPengeluaranModal({
      FETCH DATA
   ========================== */
   useEffect(() => {
-    api.get('/api/proyek').then(res => setProjects(res.data));
-    api.get('/api/pekerjaan').then(res => setJobs(res.data));
+    api.get('/proyek').then(res => setProjects(res.data));
+    api.get('/pekerjaan').then(res => setJobs(res.data));
   }, []);
 
   const filteredJobs = jobs.filter(
@@ -117,7 +117,7 @@ export default function TambahPengeluaranModal({
         dist.id_sub = '';
         if (value) {
           api
-            .get(`/api/pekerjaan/${value}/sub-pekerjaan`)
+            .get(`/pekerjaan/${value}/sub-pekerjaan`)
             .then(res => setSubs(res.data));
         }
       }
@@ -175,7 +175,7 @@ export default function TambahPengeluaranModal({
     }
 
     try {
-      await api.post('/api/pengeluaran', {
+      await api.post('/pengeluaran', {
         ...form,
         id_proyek: Number(form.id_proyek),
         details: details.map(d => ({
