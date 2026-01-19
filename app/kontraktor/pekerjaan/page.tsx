@@ -29,16 +29,43 @@ export default function PekerjaanPage() {
 
   const router = useRouter();
 
+  /* =========================
+     FETCH DATA
+  ========================== */
+  const fetchPekerjaan = async () => {
+    try {
+      const res = await api.get('/pekerjaan');
+      setJobs(res.data.data ?? res.data);
+    } catch (err) {
+      console.error('Gagal ambil pekerjaan:', err);
+    }
+  };
+
+  const fetchProyek = async () => {
+    try {
+      const res = await api.get('/proyek');
+      setProjects(res.data.data ?? res.data);
+    } catch (err) {
+      console.error('Gagal ambil proyek:', err);
+    }
+  };
+
   useEffect(() => {
-    api.get('/api/pekerjaan').then(res => setJobs(res.data));
-    api.get('/api/proyek').then(res => setProjects(res.data));
+    fetchPekerjaan();
+    fetchProyek();
   }, []);
 
+  /* =========================
+     FILTER
+  ========================== */
   const filteredJobs =
     selectedProject === 'all'
       ? jobs
       : jobs.filter(j => j.id_proyek === selectedProject);
 
+  /* =========================
+     MENU POSITION
+  ========================== */
   const getMenuPosition = (rect: DOMRect) => {
     const WIDTH = 150;
     const GAP = 8;
@@ -59,11 +86,19 @@ export default function PekerjaanPage() {
     return () => document.removeEventListener('mousedown', close);
   }, [openMenuId]);
 
+  /* =========================
+     DELETE
+  ========================== */
   const handleDelete = async (id: number) => {
     if (!confirm('Yakin ingin menghapus pekerjaan ini?')) return;
-    await api.delete(`/api/pekerjaan/${id}`);
-    setJobs(prev => prev.filter(j => j.id_pekerjaan !== id));
-    setOpenMenuId(null);
+
+    try {
+      await api.delete(`/pekerjaan/${id}`);
+      setJobs(prev => prev.filter(j => j.id_pekerjaan !== id));
+      setOpenMenuId(null);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Pekerjaan gagal dihapus');
+    }
   };
 
   return (
@@ -105,7 +140,7 @@ export default function PekerjaanPage() {
         </button>
       </div>
 
-      {/* TABLE (SCROLLABLE) */}
+      {/* TABLE */}
       <div className="table-card">
         <div className="table-scroll">
           <table className="modern-table">
@@ -195,7 +230,7 @@ export default function PekerjaanPage() {
             }
           >
             Sub Pekerjaan
-          </button> 
+          </button>
 
           <button
             onClick={() =>
@@ -229,7 +264,7 @@ export default function PekerjaanPage() {
           onClose={() => setShowTambahModal(false)}
           onSuccess={() => {
             setShowTambahModal(false);
-            api.get('/api/pekerjaan').then(res => setJobs(res.data));
+            fetchPekerjaan();
           }}
         />
       )}
