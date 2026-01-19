@@ -5,6 +5,7 @@ import api from '@/lib/axios';
 import TambahPengeluaranModal from './TambahPengeluaran';
 import { useRouter } from 'next/navigation';
 
+/* ================= TYPE ================= */
 type Pengeluaran = {
   id_pengeluaran: number;
   no_nota: string;
@@ -14,7 +15,7 @@ type Pengeluaran = {
   nama_proyek: string;
   id_pekerjaan?: number;
   nama_pekerjaan?: string;
-  total?: number | null;
+  total: number;
 };
 
 export default function PengeluaranPage() {
@@ -34,12 +35,16 @@ export default function PengeluaranPage() {
 
   /* ================= FETCH ================= */
   useEffect(() => {
+    /* ---- PENGELUARAN ---- */
     api.get('/pengeluaran')
       .then(res => {
         const list = res.data.data ?? res.data;
         const normalized = list.map((p: any) => ({
           ...p,
-          total: p.total ?? 0,
+          id_pengeluaran: Number(p.id_pengeluaran),
+          id_proyek: Number(p.id_proyek),
+          id_pekerjaan: p.id_pekerjaan ? Number(p.id_pekerjaan) : undefined,
+          total: Number(p.total ?? 0),
           tgl_transaksi: p.tgl_transaksi ?? null,
         }));
         setData(normalized);
@@ -48,12 +53,31 @@ export default function PengeluaranPage() {
         console.error('Gagal ambil pengeluaran:', err.response?.data || err);
       });
 
+    /* ---- PROYEK ---- */
     api.get('/proyek')
-      .then(res => setProjects(res.data.data ?? res.data))
+      .then(res => {
+        const list = res.data.data ?? res.data;
+        setProjects(
+          list.map((p: any) => ({
+            ...p,
+            id_proyek: Number(p.id_proyek),
+          }))
+        );
+      })
       .catch(err => console.error('Gagal ambil proyek:', err));
 
+    /* ---- PEKERJAAN ---- */
     api.get('/pekerjaan')
-      .then(res => setJobs(res.data.data ?? res.data))
+      .then(res => {
+        const list = res.data.data ?? res.data;
+        setJobs(
+          list.map((j: any) => ({
+            ...j,
+            id_pekerjaan: Number(j.id_pekerjaan),
+            id_proyek: Number(j.id_proyek),
+          }))
+        );
+      })
       .catch(err => console.error('Gagal ambil pekerjaan:', err));
   }, []);
 
@@ -102,6 +126,7 @@ export default function PengeluaranPage() {
     }
   };
 
+  /* ================= RENDER ================= */
   return (
     <main className="main-content">
       {/* HEADER */}
@@ -202,7 +227,7 @@ export default function PengeluaranPage() {
                       </span>
                     </td>
                     <td className="right">
-                      Rp {Number(p.total).toLocaleString('id-ID')}
+                      Rp {p.total.toLocaleString('id-ID')}
                     </td>
                     <td className="center">
                       <button
