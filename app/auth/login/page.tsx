@@ -1,16 +1,18 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { FormEvent } from "react";
 import api from "@/lib/axios";
 
 export default function LoginPage() {
   const router = useRouter();
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault(); // 🔥 WAJIB, sudah benar
 
-    const email = (e.currentTarget.email as HTMLInputElement).value;
-    const password = (e.currentTarget.password as HTMLInputElement).value;
+    const form = e.currentTarget;
+    const email = (form.email as HTMLInputElement).value;
+    const password = (form.password as HTMLInputElement).value;
 
     try {
       const res = await api.post("/login", {
@@ -24,7 +26,7 @@ export default function LoginPage() {
       localStorage.setItem("auth_token", token);
       localStorage.setItem("user", JSON.stringify(user));
 
-      // redirect berdasarkan role
+      // redirect sesuai role
       if (user.role === "admin") {
         router.push("/admin/dashboard");
       } else if (user.role === "kontraktor") {
@@ -35,6 +37,7 @@ export default function LoginPage() {
         router.push("/auth/login");
       }
     } catch (err: any) {
+      console.error("LOGIN ERROR:", err);
       alert(err.response?.data?.message || "Login gagal");
     }
   };
@@ -47,18 +50,34 @@ export default function LoginPage() {
           <p>Selamat datang kembali</p>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <div className="form-group">
-            <label>Email</label>
-            <input name="email" type="email" required />
+            <label htmlFor="email">Email</label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+            />
           </div>
 
           <div className="form-group">
-            <label>Password</label>
-            <input name="password" type="password" required />
+            <label htmlFor="password">Password</label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              required
+            />
           </div>
 
-          <button className="btn btn-primary" style={{ width: "100%" }}>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            style={{ width: "100%" }}
+          >
             Masuk
           </button>
 
@@ -67,7 +86,8 @@ export default function LoginPage() {
           </div>
 
           <div className="auth-link">
-            Belum memiliki akun? <a href="/auth/register">Daftar di sini</a>
+            Belum memiliki akun?{" "}
+            <a href="/auth/register">Daftar di sini</a>
           </div>
         </form>
       </div>
