@@ -33,38 +33,59 @@ export default function PengeluaranPage() {
   const router = useRouter();
 
   /* =========================
-     FETCH DATA
+     FETCH DATA (PERBAIKAN DI SINI)
   ========================== */
   useEffect(() => {
-    api.get('/pengeluaran').then(res => {
-      const normalized = res.data.map((p: any) => ({
-        ...p,
-        total: p.total ?? 0,
-        tgl_transaksi: p.tgl_transaksi ?? null,
-      }));
-      setData(normalized);
-    });
+    // 1. Fetch Pengeluaran
+    api.get('/pengeluaran')
+      .then(res => {
+        // AMBIL DATA DARI WRAPPER (.data.data)
+        const rawData = res.data.data || res.data;
+        // PASTIKAN ARRAY
+        const list = Array.isArray(rawData) ? rawData : [];
 
-    api.get('/proyek').then(res => setProjects(res.data));
-    api.get('/pekerjaan').then(res => setJobs(res.data));
+        const normalized = list.map((p: any) => ({
+          ...p,
+          total: p.total ?? 0,
+          tgl_transaksi: p.tgl_transaksi ?? null,
+        }));
+        setData(normalized);
+      })
+      .catch(err => console.error("Gagal load pengeluaran:", err));
+
+    // 2. Fetch Proyek
+    api.get('/proyek')
+      .then(res => {
+        const rawData = res.data.data || res.data;
+        setProjects(Array.isArray(rawData) ? rawData : []);
+      })
+      .catch(err => console.error("Gagal load proyek:", err));
+
+    // 3. Fetch Pekerjaan
+    api.get('/pekerjaan')
+      .then(res => {
+        const rawData = res.data.data || res.data;
+        setJobs(Array.isArray(rawData) ? rawData : []);
+      })
+      .catch(err => console.error("Gagal load pekerjaan:", err));
   }, []);
 
   /* =========================
-     FILTER
+     FILTER (PERBAIKAN SAFE TYPE)
   ========================== */
   const filteredJobs =
     selectedProject === 'all'
       ? []
-      : jobs.filter(j => j.id_proyek === selectedProject);
+      : jobs.filter(j => String(j.id_proyek) === String(selectedProject));
 
   const filteredData = data.filter(d => {
-    if (selectedProject !== 'all' && d.id_proyek !== selectedProject) return false;
-    if (selectedJob !== 'all' && d.id_pekerjaan !== selectedJob) return false;
+    if (selectedProject !== 'all' && String(d.id_proyek) !== String(selectedProject)) return false;
+    if (selectedJob !== 'all' && String(d.id_pekerjaan) !== String(selectedJob)) return false;
     return true;
   });
 
   /* =========================
-     POPUP
+     POPUP MENU
   ========================== */
   const getMenuPosition = (rect: DOMRect) => {
     const WIDTH = 130;
@@ -88,9 +109,13 @@ export default function PengeluaranPage() {
 
   const handleDelete = async (id: number) => {
     if (!confirm('Yakin ingin menghapus pengeluaran ini?')) return;
-    await api.delete(`/pengeluaran/${id}`);
-    setData(prev => prev.filter(p => p.id_pengeluaran !== id));
-    setOpenMenuId(null);
+    try {
+        await api.delete(`/pengeluaran/${id}`);
+        setData(prev => prev.filter(p => p.id_pengeluaran !== id));
+        setOpenMenuId(null);
+    } catch (err: any) {
+        alert(err.response?.data?.message || 'Gagal menghapus data');
+    }
   };
 
   return (
@@ -103,15 +128,16 @@ export default function PengeluaranPage() {
         </div>
       </div>
 
-      {/* FILTER */}
+      {/* FILTER CARD */}
       <div className="filter-card">
+        {/* Filter Proyek */}
         <select
           className="filter-input"
           value={selectedProject}
           onChange={e => {
-            const val = e.target.value === 'all' ? 'all' : Number(e.target.value);
-            setSelectedProject(val);
-            setSelectedJob('all');
+            const val = e.target.value;
+            setSelectedProject(val === 'all' ? 'all' : Number(val));
+            setSelectedJob('all'); // Reset job saat ganti proyek
           }}
         >
           <option value="all">Semua Proyek</option>
@@ -122,13 +148,15 @@ export default function PengeluaranPage() {
           ))}
         </select>
 
+        {/* Filter Pekerjaan */}
         <select
           className="filter-input"
           disabled={selectedProject === 'all'}
           value={selectedJob}
-          onChange={e =>
-            setSelectedJob(e.target.value === 'all' ? 'all' : Number(e.target.value))
-          }
+          onChange={e => {
+            const val = e.target.value;
+            setSelectedJob(val === 'all' ? 'all' : Number(val));
+          }}
         >
           <option value="all">
             {selectedProject === 'all'
@@ -165,7 +193,7 @@ export default function PengeluaranPage() {
             {filteredData.length === 0 ? (
               <tr>
                 <td colSpan={6} className="empty">
-                  Tidak ada data
+                  Tidak ada data pengeluaran
                 </td>
               </tr>
             ) : (
@@ -175,11 +203,20 @@ export default function PengeluaranPage() {
 
                   <td>
                     {p.tgl_transaksi
-                      ? new Date(p.tgl_transaksi).toLocaleDateString('id-ID')
+                      ? new Date(p.tgl_transaksi).toLocaleDateString('id-ID', {
+                          day: 'numeric', month: 'short', year: 'numeric'
+                        })
                       : '-'}
                   </td>
 
-                  <td>{p.nama_proyek}</td>
+                  <td>
+                      <div>{p.nama_proyek}</div>
+                      {p.nama_pekerjaan && (
+                          <small style={{ color: '#666', fontSize: '0.85em' }}>
+                              Job: {p.nama_pekerjaan}
+                          </small>
+                      )}
+                  </td>
 
                   <td>
                     <span
@@ -215,7 +252,7 @@ export default function PengeluaranPage() {
         </table>
       </div>
 
-      {/* POPUP */}
+      {/* POPUP MENU */}
       {openMenuId && menuPos && (
         <div
           ref={menuRef}
@@ -239,8 +276,16 @@ export default function PengeluaranPage() {
         </div>
       )}
 
+      {/* MODAL TAMBAH */}
       {showTambahModal && (
-        <TambahPengeluaranModal onClose={() => setShowTambahModal(false)} />
+        <TambahPengeluaranModal 
+            onClose={() => setShowTambahModal(false)} 
+            onSuccess={() => {
+                setShowTambahModal(false);
+                // Refresh data (Reload page simpel)
+                window.location.reload(); 
+            }}
+        />
       )}
     </main>
   );
