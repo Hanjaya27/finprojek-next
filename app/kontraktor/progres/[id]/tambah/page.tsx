@@ -32,51 +32,54 @@ export default function TambahProgresPage() {
   }, [id]);
 
   /* ================= HANDLE FILE ================= */
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = Array.from(e.target.files || []);
-    // validasi ukuran per file
-    for (const file of selectedFiles) {
-      if (file.size > MAX_FILE_SIZE) {
-        alert(`File "${file.name}" terlalu besar. Maksimal 20MB per file.`);
-        return;
+/* ================= SUBMIT ================= */
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setLoading(true);
+
+  try {
+    const fd = new FormData();
+    
+    // ✅ TAMBAHAN PENTING: Kirim ID Proyek di body
+    // Pastikan 'id' ini adalah ID Proyek dari useParams
+    fd.append('id_proyek', Array.isArray(id) ? id[0] : id); 
+
+    fd.append('judul_update', judul);
+    fd.append('deskripsi', deskripsi);
+    fd.append('tambah_persentase', tambahPersen);
+
+    // Append file array
+    files.forEach(file => {
+      fd.append('dokumen[]', file);
+    });
+
+    // Gunakan api.post
+    await api.post(`/progres/${id}`, fd, { // URL ini mungkin perlu dicek lagi (lihat poin 2 di bawah)
+      headers: {
+          'Content-Type': 'multipart/form-data'
       }
+    });
+
+    alert('Progres berhasil ditambahkan');
+    router.push(`/kontraktor/progres/${id}`);
+
+  } catch (err: any) {
+    console.error(err);
+    
+    // Tips Debugging: Lihat pesan error spesifik dari Laravel
+    const errorData = err.response?.data;
+    if (errorData?.errors) {
+       // Gabungkan semua pesan error jadi satu string
+       const errorMessages = Object.values(errorData.errors).flat().join('\n');
+       alert(`Validasi Gagal:\n${errorMessages}`);
+    } else {
+       alert(errorData?.message || 'Gagal menambahkan progres');
     }
-    setFiles(selectedFiles);
-  };
-
-  /* ================= SUBMIT ================= */
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      const fd = new FormData();
-      fd.append('judul_update', judul);
-      fd.append('deskripsi', deskripsi);
-      fd.append('tambah_persentase', tambahPersen);
-
-      // Append file array
-      files.forEach(file => {
-        fd.append('dokumen[]', file);
-      });
-
-      // Gunakan api.post (Axios otomatis handle Content-Type multipart/form-data)
-      await api.post(`/progres/${id}`, fd, {
-        headers: {
-            'Content-Type': 'multipart/form-data'
-        }
-      });
-
-      alert('Progres berhasil ditambahkan');
-      router.push(`/kontraktor/progres/${id}`);
-
-    } catch (err: any) {
-      console.error(err);
-      alert(err.response?.data?.message || 'Gagal menambahkan progres');
-    } finally {
-      setLoading(false);
-    }
-  };
+    
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <main className="main-content">
