@@ -28,12 +28,12 @@ export default function LaporanKeuanganPage() {
   const fetchData = async () => {
     if (!filter.id_proyek) return;
 
-    const res = await api.get('/api/laporan-keuangan', { params: filter });
+    const res = await api.get('/laporan-keuangan', { params: filter });
     setData(res.data);
   };
 
   useEffect(() => {
-    api.get('/api/proyek').then(res => setProyek(res.data));
+    api.get('/proyek').then(res => setProyek(res.data));
   }, []);
 
   /* ================= CLOSE EXPORT ================= */
@@ -69,7 +69,7 @@ export default function LaporanKeuanganPage() {
   };
 
   const exportExcel = async () => {
-    const res = await api.get('/api/laporan-keuangan/export/excel', {
+    const res = await api.get('/laporan-keuangan/export/excel', {
       params: { id_proyek: filter.id_proyek },
       responseType: 'blob'
     });
@@ -82,7 +82,7 @@ export default function LaporanKeuanganPage() {
   };
 
   const exportPdf = async () => {
-    const res = await api.get('/api/laporan-keuangan/export/pdf', {
+    const res = await api.get('/laporan-keuangan/export/pdf', {
       params: { id_proyek: filter.id_proyek },
       responseType: 'blob'
     });
