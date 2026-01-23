@@ -29,27 +29,27 @@ export default function MaterialPage() {
 
   const fetchMaterial = () => {
     api
-      .get('/api/material', { params: filter })
+      .get('/material', { params: filter })
       .then(res => setRows(res.data))
       .catch(err => console.error(err));
   };
 
   useEffect(() => {
-    api.get('/api/dropdown/proyek').then(res => setProyek(res.data));
+    api.get('/dropdown/proyek').then(res => setProyek(res.data));
     fetchMaterial();
   }, []);
 
   useEffect(() => {
     if (!filter.id_proyek) return setPekerjaan([]);
     api
-      .get(`/api/dropdown/pekerjaan/${filter.id_proyek}`)
+      .get(`/dropdown/pekerjaan/${filter.id_proyek}`)
       .then(res => setPekerjaan(res.data));
   }, [filter.id_proyek]);
 
   useEffect(() => {
     if (!filter.id_pekerjaan) return setSub([]);
     api
-      .get(`/api/dropdown/sub/${filter.id_pekerjaan}`)
+      .get(`/dropdown/sub/${filter.id_pekerjaan}`)
       .then(res => setSub(res.data));
   }, [filter.id_pekerjaan]);
 
