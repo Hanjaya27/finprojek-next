@@ -16,7 +16,7 @@ export default function EditProyekModal({
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    api.get(`/api/proyek/${id}`).then(res => {
+    api.get(`/proyek/${id}`).then(res => {
       setForm(res.data);
     });
   }, [id]);
