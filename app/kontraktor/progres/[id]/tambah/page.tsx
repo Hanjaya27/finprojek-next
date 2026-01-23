@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import api from '@/lib/axios'; // Gunakan Axios helper
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
@@ -18,71 +19,63 @@ export default function TambahProgresPage() {
 
   /* ================= AMBIL PERSENTASE TERAKHIR ================= */
   useEffect(() => {
-    const fetchLast = async () => {
-      const token = localStorage.getItem('auth_token');
-      if (!token) return;
-
-      const res = await fetch(`http://localhost:8000/api/progres/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
+    // Gunakan api.get, bukan fetch manual
+    api.get(`/progres/${id}`)
+      .then(res => {
+        // Handle wrapper data
+        const data = res.data.data || res.data;
+        setPersentaseTerakhir(data.persentase_terakhir ?? 0);
+      })
+      .catch(err => {
+        console.error("Gagal load data:", err);
       });
-
-      const data = await res.json();
-      setPersentaseTerakhir(data.persentase_terakhir);
-    };
-
-    fetchLast();
   }, [id]);
 
   /* ================= HANDLE FILE ================= */
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
-
     // validasi ukuran per file
     for (const file of selectedFiles) {
       if (file.size > MAX_FILE_SIZE) {
-        alert(
-          `File "${file.name}" terlalu besar. Maksimal 20MB per file.`
-        );
+        alert(`File "${file.name}" terlalu besar. Maksimal 20MB per file.`);
         return;
       }
     }
-
     setFiles(selectedFiles);
   };
 
   /* ================= SUBMIT ================= */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    const token = localStorage.getItem('auth_token');
-    if (!token) return;
-
     setLoading(true);
 
-    const fd = new FormData();
-    fd.append('judul_update', judul);
-    fd.append('deskripsi', deskripsi);
-    fd.append('tambah_persentase', tambahPersen);
+    try {
+      const fd = new FormData();
+      fd.append('judul_update', judul);
+      fd.append('deskripsi', deskripsi);
+      fd.append('tambah_persentase', tambahPersen);
 
-    files.forEach(file => {
-      fd.append('dokumen[]', file); // ⬅️ PENTING
-    });
+      // Append file array
+      files.forEach(file => {
+        fd.append('dokumen[]', file);
+      });
 
-    const res = await fetch(`http://localhost:8000/api/progres/${id}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: fd,
-    });
+      // Gunakan api.post (Axios otomatis handle Content-Type multipart/form-data)
+      await api.post(`/progres/${id}`, fd, {
+        headers: {
+            'Content-Type': 'multipart/form-data'
+        }
+      });
 
-    setLoading(false);
+      alert('Progres berhasil ditambahkan');
+      router.push(`/kontraktor/progres/${id}`);
 
-    if (!res.ok) {
-      alert('Gagal menambahkan progres');
-      return;
+    } catch (err: any) {
+      console.error(err);
+      alert(err.response?.data?.message || 'Gagal menambahkan progres');
+    } finally {
+      setLoading(false);
     }
-
-    alert('Progres berhasil ditambahkan');
-    router.push(`/kontraktor/progres/${id}`);
   };
 
   return (
@@ -91,41 +84,53 @@ export default function TambahProgresPage() {
 
       <section className="card">
         <form onSubmit={handleSubmit} className="form">
-          <label>Persentase Saat Ini</label>
-          <input value={persentaseTerakhir} disabled />
+          <label style={{display: 'block', marginBottom: 8, fontWeight: 'bold'}}>Persentase Saat Ini</label>
+          <input 
+            className="form-control" style={{width: '100%', padding: 8, marginBottom: 16, background: '#f0f0f0'}}
+            value={`${persentaseTerakhir}%`} 
+            disabled 
+          />
 
-          <label>Tambah Persentase (%)</label>
+          <label style={{display: 'block', marginBottom: 8, fontWeight: 'bold'}}>Tambah Persentase (%)</label>
           <input
             type="number"
+            className="form-control" style={{width: '100%', padding: 8, marginBottom: 16}}
             value={tambahPersen}
             onChange={e => setTambahPersen(e.target.value)}
             required
+            min="0"
+            max={100 - persentaseTerakhir} // Validasi HTML agar tidak lebih dari 100%
           />
 
-          <label>Judul Update</label>
+          <label style={{display: 'block', marginBottom: 8, fontWeight: 'bold'}}>Judul Update</label>
           <input
+            className="form-control" style={{width: '100%', padding: 8, marginBottom: 16}}
             value={judul}
             onChange={e => setJudul(e.target.value)}
             placeholder="Contoh: Pekerjaan Struktur"
+            required
           />
 
-          <label>Deskripsi</label>
+          <label style={{display: 'block', marginBottom: 8, fontWeight: 'bold'}}>Deskripsi</label>
           <textarea
+            className="form-control" style={{width: '100%', padding: 8, marginBottom: 16}}
             value={deskripsi}
             onChange={e => setDeskripsi(e.target.value)}
+            rows={4}
           />
 
-          <label>Upload Foto (max 5MB)</label>
+          <label style={{display: 'block', marginBottom: 8, fontWeight: 'bold'}}>Upload Foto/Video</label>
           <input
             type="file"
             accept="image/*,video/*"
             multiple
             onChange={handleFileChange}
+            style={{marginBottom: 16}}
           />
 
           {/* ===== PREVIEW FILE ===== */}
           {files.length > 0 && (
-            <ul className="file-list">
+            <ul className="file-list" style={{marginBottom: 20, paddingLeft: 20, color: '#666'}}>
               {files.map((file, i) => (
                 <li key={i}>
                   {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
@@ -134,7 +139,7 @@ export default function TambahProgresPage() {
             </ul>
           )}
 
-          <button className="btn-primary" disabled={loading}>
+          <button className="btn btn-primary" disabled={loading} style={{width: '100%', padding: 12}}>
             {loading ? 'Menyimpan...' : 'Simpan Progres'}
           </button>
         </form>
