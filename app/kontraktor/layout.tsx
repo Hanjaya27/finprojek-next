@@ -15,6 +15,13 @@ export default function KontraktorLayout({
   const [user, setUser] = useState<any>(null);
   const [sisaHari, setSisaHari] = useState<number | null>(null);
 
+  // 1. Ambil URL API dari Environment Variable
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.finprojek.web.id';
+
+  // 2. Buat URL khusus untuk Storage (Hapus akhiran "/api" jika ada)
+  // Ini penting agar link gambar menjadi: https://domain.com/storage/foto.png
+  const STORAGE_BASE_URL = API_BASE_URL.replace(/\/api$/, '');
+
   useEffect(() => {
     const token = localStorage.getItem('auth_token');
     const userData = localStorage.getItem('user');
@@ -37,7 +44,7 @@ export default function KontraktorLayout({
 
       setSisaHari(diffDay);
     }
-  }, []);
+  }, [router]); // Tambahkan router ke dependency array agar clean
 
   const logout = () => {
     localStorage.removeItem('auth_token');
@@ -97,10 +104,11 @@ export default function KontraktorLayout({
             onClick={() => router.push('/kontraktor/profile')}
             style={{ cursor: 'pointer' }}
           >
+            {/* 3. PERBAIKAN: Gunakan STORAGE_BASE_URL dinamis */}
             <img
               src={
                 user.foto_profil
-                  ? `http://localhost:8000/storage/${user.foto_profil}`
+                  ? `${STORAGE_BASE_URL}/storage/${user.foto_profil}`
                   : '/images/default-avatar.png'
               }
               alt="Foto Profil"
