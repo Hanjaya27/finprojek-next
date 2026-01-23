@@ -13,6 +13,7 @@ type Props = {
 };
 
 type FormState = {
+  id_pekerjaan: number | string; // Simpan ID Parent untuk safety
   nama_sub: string;
   tgl_mulai: string;
   keterangan: string;
@@ -33,19 +34,18 @@ export default function EditSubPekerjaanModal({
     const fetchData = async () => {
       try {
         setLoading(true);
-        // Hapus /api manual, biarkan axios base URL yang handle
+        // GET Data
         const res = await api.get(`/sub-pekerjaan/${idSub}`);
         
-        // PERBAIKAN 1: Cek Wrapper Data (Safety Check)
-        // Kadang di res.data.data, kadang di res.data.sub_pekerjaan
+        // Safety Check Data Wrapper
         const responseData = res.data.data || res.data;
         const sub = responseData.sub_pekerjaan || responseData;
 
         if (!sub) throw new Error("Data tidak ditemukan");
 
         setForm({
+          id_pekerjaan: sub.id_pekerjaan || '', // Ambil ID parent jaga-jaga backend butuh
           nama_sub: sub.nama_sub || '',
-          // Pastikan tanggal tidak null/undefined saat masuk ke value input
           tgl_mulai: sub.tgl_mulai || '', 
           keterangan: sub.keterangan || '',
         });
@@ -62,7 +62,6 @@ export default function EditSubPekerjaanModal({
     if (idSub) fetchData();
   }, [idSub, onClose]);
 
-  // Render null jika loading atau form belum siap
   if (loading || !form) return null;
 
   /* =========================
@@ -72,23 +71,25 @@ export default function EditSubPekerjaanModal({
     e.preventDefault();
 
     try {
-      // PERBAIKAN 2: Validasi Payload
-      // Pastikan tgl_mulai dikirim sebagai NULL jika string kosong
-      // SQL akan error jika dikirim string kosong "" ke kolom DATE
+      // PERBAIKAN UTAMA: Method Spoofing
+      // Gunakan POST, tapi sisipkan _method: 'PUT'
+      // Ini teknik standar Laravel di Shared Hosting agar body terbaca
       const payload = {
+        _method: 'PUT', 
+        id_pekerjaan: form.id_pekerjaan, // Kirim ulang ID parent (Safety)
         nama_sub: form.nama_sub,
         tgl_mulai: form.tgl_mulai ? form.tgl_mulai : null, 
         keterangan: form.keterangan,
       };
 
-      await api.put(`/sub-pekerjaan/${idSub}`, payload);
+      // Ganti api.put menjadi api.post
+      await api.post(`/sub-pekerjaan/${idSub}`, payload);
 
       alert('Sub Pekerjaan berhasil diupdate!');
-      onSuccess(); // Refresh data di parent
-      onClose();   // Tutup modal
+      onSuccess(); 
+      onClose();   
     } catch (err: any) {
       console.error("Error Updating:", err);
-      // Tampilkan pesan spesifik dari backend jika ada
       const msg = err.response?.data?.message || 'Gagal mengupdate sub pekerjaan (Server Error)';
       alert(msg);
     }
