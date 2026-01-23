@@ -36,7 +36,7 @@ export default function PengeluaranPage() {
      FETCH DATA
   ========================== */
   useEffect(() => {
-    api.get('/api/pengeluaran').then(res => {
+    api.get('/pengeluaran').then(res => {
       const normalized = res.data.map((p: any) => ({
         ...p,
         total: p.total ?? 0,
@@ -45,8 +45,8 @@ export default function PengeluaranPage() {
       setData(normalized);
     });
 
-    api.get('/api/proyek').then(res => setProjects(res.data));
-    api.get('/api/pekerjaan').then(res => setJobs(res.data));
+    api.get('/proyek').then(res => setProjects(res.data));
+    api.get('/pekerjaan').then(res => setJobs(res.data));
   }, []);
 
   /* =========================
@@ -88,7 +88,7 @@ export default function PengeluaranPage() {
 
   const handleDelete = async (id: number) => {
     if (!confirm('Yakin ingin menghapus pengeluaran ini?')) return;
-    await api.delete(`/api/pengeluaran/${id}`);
+    await api.delete(`/pengeluaran/${id}`);
     setData(prev => prev.filter(p => p.id_pengeluaran !== id));
     setOpenMenuId(null);
   };
