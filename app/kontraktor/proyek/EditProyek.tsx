@@ -44,7 +44,7 @@ export default function EditProyekModal({
         fd.append('dokumen_mou', form.mou);
       }
 
-      await api.post(`/api/proyek/${id}`, fd);
+      await api.post(`/proyek/${id}`, fd);
 
       onClose();
       location.reload();

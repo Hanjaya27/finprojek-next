@@ -48,7 +48,7 @@ export default function DetailProyek() {
       try {
         // Menggunakan env variable untuk endpoint API
         const res = await fetch(
-          `${API_BASE_URL}/api/pemilik/proyek/${id}/progress`,
+          `${API_BASE_URL}/pemilik/proyek/${id}/progress`,
           {
             headers: {
               'Authorization': `Bearer ${token}`,

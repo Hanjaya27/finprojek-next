@@ -26,7 +26,7 @@ export default function ProyekPemilikPage() {
     if (!token) return router.push('/auth/login');
 
     // Gunakan URL dinamis, bukan localhost
-    fetch(`${API_BASE_URL}/api/pemilik/proyek`, {
+    fetch(`${API_BASE_URL}/pemilik/proyek`, {
       headers: { 
         'Authorization': `Bearer ${token}`,
         'Accept': 'application/json' 

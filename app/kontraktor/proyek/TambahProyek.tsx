@@ -28,7 +28,7 @@ export default function TambahProyekModal({ onClose }: { onClose: () => void }) 
     try {
       const token = localStorage.getItem('token');
     
-      await api.post('/api/proyek', formData, {
+      await api.post('/proyek', formData, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data',

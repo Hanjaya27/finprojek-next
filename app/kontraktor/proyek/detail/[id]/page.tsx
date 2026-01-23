@@ -13,7 +13,7 @@ export default function DetailProyekPage() {
   const [proyek, setProyek] = useState<any>(null);
 
   useEffect(() => {
-    api.get(`/api/proyek/${id}`)
+    api.get(`/proyek/${id}`)
       .then(res => setProyek(res.data))
       .catch(() => {
         alert('Proyek tidak ditemukan');
