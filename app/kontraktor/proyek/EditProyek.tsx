@@ -14,17 +14,17 @@ export default function EditProyekModal({ id, onClose }: EditProyekModalProps) {
   const [form, setForm] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
-  // FETCH DATA SAAT MODAL DIBUKA
   useEffect(() => {
-    // PERBAIKAN 1: Hapus "/api" di depan url
+    // PERBAIKAN 1: Hapus "/api" manual (biarkan axios yang handle)
     api.get(`/proyek/${id}`)
       .then(res => {
-        // PERBAIKAN 2: Ambil data dari dalam wrapper (res.data.data)
-        // Jika backend tidak pakai wrapper, fallback ke res.data
-        setForm(res.data.data || res.data);
+        // PERBAIKAN 2: Masuk ke dalam properti .data
+        // Cek apakah response punya wrapper .data atau tidak
+        const responseData = res.data.data || res.data;
+        setForm(responseData);
       })
       .catch(err => {
-        console.error("Gagal ambil data:", err);
+        console.error("Gagal load data:", err);
         alert('Gagal mengambil data proyek');
         onClose();
       });
@@ -39,141 +39,123 @@ export default function EditProyekModal({ id, onClose }: EditProyekModalProps) {
     try {
       const fd = new FormData();
 
-      // Teknik Spoofing PUT untuk Laravel (Wajib jika kirim file via FormData)
+      // Spoofing PUT method untuk Laravel
       fd.append('_method', 'PUT');
 
       fd.append('nama_proyek', form.nama_proyek);
       fd.append('lokasi', form.lokasi || '');
       fd.append('biaya_kesepakatan', String(form.biaya_kesepakatan));
-      
-      // Pastikan format tanggal YYYY-MM-DD
       fd.append('tgl_mulai', form.tgl_mulai ?? '');
       fd.append('tgl_selesai', form.tgl_selesai ?? '');
-      
       fd.append('status', form.status);
 
-      // Hanya append jika ada file baru yang dipilih
+      // Hanya kirim file jika user mengupload file baru
       if (form.mou_baru) {
         fd.append('dokumen_mou', form.mou_baru);
       }
 
-      // PERBAIKAN 3: Pastikan URL POST juga tanpa "/api" manual
+      // PERBAIKAN 3: URL Post tanpa "/api"
       await api.post(`/proyek/${id}`, fd, {
-        headers: {
-            'Content-Type': 'multipart/form-data'
-        }
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
 
       alert('Proyek berhasil diperbarui!');
       onClose();
-      window.location.reload(); // Refresh halaman agar data terupdate
+      window.location.reload(); 
       
     } catch (err: any) {
-      const status = err?.response?.status;
-
-      if (status === 403) {
-        alert('Masa trial Anda sudah habis atau Anda tidak memiliki akses.');
-        onClose();
-        router.push('/kontraktor/upgrade');
-        return;
-      }
-
       console.error(err);
-      alert(err.response?.data?.message || 'Gagal memperbarui proyek.');
+      const status = err?.response?.status;
+      if (status === 403) {
+        alert('Akses ditolak atau trial habis.');
+        router.push('/kontraktor/upgrade');
+      } else {
+        alert(err.response?.data?.message || 'Gagal update proyek.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="modal active" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 50 }}>
-      <div className="modal-content" style={{ background: 'white', padding: '20px', borderRadius: '8px', width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto' }}>
-        <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
-          <h2 style={{ margin: 0 }}>Edit Proyek</h2>
-          <button className="modal-close" onClick={onClose} style={{ border: 'none', background: 'transparent', fontSize: '1.5rem', cursor: 'pointer' }}>✕</button>
+    <div className="modal active" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9999 }}>
+      <div className="modal-content" style={{ background: 'white', padding: '24px', borderRadius: '8px', width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto' }}>
+        
+        <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+          <h2 style={{ margin: 0, fontSize: '1.5rem' }}>Edit Proyek</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>✕</button>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="form-group" style={{ marginBottom: '10px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>Nama Proyek</label>
+          {/* NAMA PROYEK */}
+          <div className="form-group" style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Nama Proyek</label>
             <input
               className="form-control"
               style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
               value={form.nama_proyek || ''}
-              onChange={e =>
-                setForm({ ...form, nama_proyek: e.target.value })
-              }
+              onChange={e => setForm({ ...form, nama_proyek: e.target.value })}
               required
             />
           </div>
 
-          <div className="form-group" style={{ marginBottom: '10px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>Lokasi Proyek</label>
+          {/* LOKASI */}
+          <div className="form-group" style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Lokasi Proyek</label>
             <input
               className="form-control"
               style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
               value={form.lokasi || ''}
-              onChange={e =>
-                setForm({ ...form, lokasi: e.target.value })
-              }
+              onChange={e => setForm({ ...form, lokasi: e.target.value })}
               required
             />
           </div>
 
-          <div className="form-group" style={{ marginBottom: '10px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>Biaya Kesepakatan</label>
+          {/* BIAYA */}
+          <div className="form-group" style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Biaya Kesepakatan</label>
             <input
+              type="number"
               className="form-control"
               style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
-              type="number"
-              value={Number(form.biaya_kesepakatan) || 0}
-              onChange={e =>
-                setForm({
-                  ...form,
-                  biaya_kesepakatan: e.target.value,
-                })
-              }
+              value={form.biaya_kesepakatan || ''}
+              onChange={e => setForm({ ...form, biaya_kesepakatan: e.target.value })}
               required
             />
           </div>
 
-          <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
-            <div className="form-group">
-                <label style={{ display: 'block', marginBottom: '5px' }}>Tanggal Mulai</label>
-                <input
+          {/* TANGGAL (GRID) */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Tanggal Mulai</label>
+              <input
                 type="date"
                 className="form-control"
                 style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
                 value={form.tgl_mulai || ''}
-                onChange={e =>
-                    setForm({ ...form, tgl_mulai: e.target.value })
-                }
-                />
+                onChange={e => setForm({ ...form, tgl_mulai: e.target.value })}
+              />
             </div>
-
-            <div className="form-group">
-                <label style={{ display: 'block', marginBottom: '5px' }}>Tanggal Selesai</label>
-                <input
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Tanggal Selesai</label>
+              <input
                 type="date"
                 className="form-control"
                 style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
                 value={form.tgl_selesai || ''}
-                onChange={e =>
-                    setForm({ ...form, tgl_selesai: e.target.value })
-                }
-                />
+                onChange={e => setForm({ ...form, tgl_selesai: e.target.value })}
+              />
             </div>
           </div>
 
-          <div className="form-group" style={{ marginBottom: '10px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>Status Proyek</label>
+          {/* STATUS */}
+          <div className="form-group" style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Status Proyek</label>
             <select
               className="form-control"
               style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
               value={form.status || 'Berjalan'}
-              onChange={e =>
-                setForm({ ...form, status: e.target.value })
-              }
+              onChange={e => setForm({ ...form, status: e.target.value })}
             >
               <option value="Berjalan">Berjalan</option>
               <option value="Selesai">Selesai</option>
@@ -181,40 +163,39 @@ export default function EditProyekModal({ id, onClose }: EditProyekModalProps) {
             </select>
           </div>
 
-          <div className="form-group" style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>Update Dokumen MOU (Opsional)</label>
+          {/* FILE UPLOAD */}
+          <div className="form-group" style={{ marginBottom: '24px' }}>
+            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Dokumen MOU (Opsional)</label>
             <input
               type="file"
               accept=".pdf,.doc,.docx"
-              onChange={e =>
-                // Simpan file baru ke state 'mou_baru' agar tidak menimpa string 'dokumen_mou' lama
-                setForm({ ...form, mou_baru: e.target.files?.[0] })
-              }
+              onChange={e => setForm({ ...form, mou_baru: e.target.files?.[0] })}
             />
             {form.dokumen_mou && !form.mou_baru && (
-              <small style={{ color: '#666', display: 'block', marginTop: '5px' }}>
-                *Dokumen saat ini sudah ada. Upload baru untuk mengganti.
+              <small style={{ color: '#2ecc71', display: 'block', marginTop: '4px', fontSize: '0.9em' }}>
+                ✓ Dokumen saat ini sudah ada.
               </small>
             )}
           </div>
 
-          <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+          {/* BUTTONS */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
             <button 
-                type="button" 
-                onClick={onClose}
-                className="btn"
-                style={{ padding: '8px 16px', background: '#ccc', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+              type="button" 
+              onClick={onClose}
+              style={{ padding: '10px 20px', background: '#e0e0e0', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
             >
               Batal
             </button>
             <button 
-                className="btn btn-primary" 
-                disabled={loading}
-                style={{ padding: '8px 16px', background: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+              type="submit" 
+              disabled={loading}
+              style={{ padding: '10px 20px', background: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', opacity: loading ? 0.7 : 1 }}
             >
-              {loading ? 'Menyimpan...' : 'Update'}
+              {loading ? 'Menyimpan...' : 'Update Proyek'}
             </button>
           </div>
+
         </form>
       </div>
     </div>
