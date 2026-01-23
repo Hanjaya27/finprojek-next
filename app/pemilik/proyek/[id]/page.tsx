@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 
+// === TYPE DEFINITIONS ===
 type Proyek = {
   id_proyek: number;
   nama_proyek: string;
@@ -33,6 +34,9 @@ export default function DetailProyek() {
   const [persentaseTerakhir, setPersentaseTerakhir] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
+  // URL Backend Dinamis
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
   useEffect(() => {
     const token = localStorage.getItem('auth_token');
     if (!token) {
@@ -42,19 +46,20 @@ export default function DetailProyek() {
 
     const fetchProgress = async () => {
       try {
+        // Menggunakan env variable untuk endpoint API
         const res = await fetch(
-          `http://localhost:8000/api/pemilik/proyek/${id}/progress`,
+          `${API_BASE_URL}/api/pemilik/proyek/${id}/progress`,
           {
             headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: 'application/json',
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/json',
             },
           }
         );
 
         if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.message || 'Gagal mengambil data');
+          const errData = await res.json();
+          throw new Error(errData.message || 'Gagal mengambil data proyek');
         }
 
         const data = await res.json();
@@ -63,21 +68,25 @@ export default function DetailProyek() {
         setProgressList(Array.isArray(data?.progress_list) ? data.progress_list : []);
         setPersentaseTerakhir(data?.persentase_terakhir ?? 0);
       } catch (err: any) {
+        console.error("Error fetching detail:", err);
         setError(err.message);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchProgress();
-  }, [id, router]);
+    if (id) fetchProgress();
+  }, [id, router, API_BASE_URL]);
 
-  if (loading) return <p className="main-content">Loading...</p>;
+  if (loading) return <p className="main-content text-center">Loading detail proyek...</p>;
 
   if (error)
     return (
       <main className="main-content">
-        <p style={{ color: 'red' }}>{error}</p>
+        <div className="alert alert-error" style={{ color: 'red', textAlign: 'center', marginTop: '20px' }}>
+            {error}
+        </div>
+        <button className="btn btn-sm" onClick={() => router.back()}>Kembali</button>
       </main>
     );
 
@@ -86,27 +95,28 @@ export default function DetailProyek() {
       {/* ===== HEADER ===== */}
       <div className="page-header">
         <h1 className="title-inline">
+          <button onClick={() => router.back()} style={{ marginRight: '10px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.5rem' }}>←</button>
           <span>Detail Proyek</span>
-          {proyek && <span className="project-title">{proyek.nama_proyek}</span>}
         </h1>
+        {proyek && <span className="project-title-badge">{proyek.nama_proyek}</span>}
       </div>
 
       {/* ===== DETAIL PROYEK ===== */}
       {proyek && (
         <section className="card section-spacing">
           <h3>Informasi Proyek</h3>
-          <table className="project-detail-table">
+          <table className="project-detail-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
             <tbody>
               <tr>
-                <td>Nama Proyek</td>
+                <td style={{ fontWeight: 'bold', padding: '8px' }}>Nama Proyek</td>
                 <td>{proyek.nama_proyek}</td>
               </tr>
               <tr>
-                <td>Lokasi</td>
+                <td style={{ fontWeight: 'bold', padding: '8px' }}>Lokasi</td>
                 <td>{proyek.lokasi || '-'}</td>
               </tr>
               <tr>
-                <td>Biaya Kesepakatan</td>
+                <td style={{ fontWeight: 'bold', padding: '8px' }}>Biaya Kesepakatan</td>
                 <td>
                   {proyek.biaya_kesepakatan
                     ? `Rp ${proyek.biaya_kesepakatan.toLocaleString('id-ID')}`
@@ -114,21 +124,23 @@ export default function DetailProyek() {
                 </td>
               </tr>
               <tr>
-                <td>Tanggal Mulai</td>
+                <td style={{ fontWeight: 'bold', padding: '8px' }}>Tanggal Mulai</td>
                 <td>{proyek.tgl_mulai ? new Date(proyek.tgl_mulai).toLocaleDateString('id-ID') : '-'}</td>
               </tr>
               <tr>
-                <td>Tanggal Selesai</td>
+                <td style={{ fontWeight: 'bold', padding: '8px' }}>Tanggal Selesai</td>
                 <td>{proyek.tgl_selesai ? new Date(proyek.tgl_selesai).toLocaleDateString('id-ID') : '-'}</td>
               </tr>
               <tr>
-                <td>Dokumen MOU</td>
+                <td style={{ fontWeight: 'bold', padding: '8px' }}>Dokumen MOU</td>
                 <td>
                   {proyek.dokumen_mou ? (
+                    // PERBAIKAN: Link Dokumen Dinamis
                     <a
-                      href={`http://localhost:8000/storage/${proyek.dokumen_mou}`}
+                      href={`${API_BASE_URL}/storage/${proyek.dokumen_mou}`}
                       target="_blank"
                       rel="noopener noreferrer"
+                      className="text-blue-600 underline"
                     >
                       Lihat Dokumen
                     </a>
@@ -138,7 +150,7 @@ export default function DetailProyek() {
                 </td>
               </tr>
               <tr>
-                <td>Status</td>
+                <td style={{ fontWeight: 'bold', padding: '8px' }}>Status</td>
                 <td>{proyek.status || '-'}</td>
               </tr>
             </tbody>
@@ -149,67 +161,76 @@ export default function DetailProyek() {
       {/* ===== PROGRES SAAT INI ===== */}
       <section className="card section-spacing">
         <h3>Progres Saat Ini</h3>
-
-        <div className="progress-bar">
-          <div className="progress-fill" style={{ width: `${persentaseTerakhir}%` }} />
+        <div className="progress-bar-container" style={{ background: '#eee', height: '20px', borderRadius: '10px', overflow: 'hidden', margin: '10px 0' }}>
+          <div 
+            className="progress-fill" 
+            style={{ 
+                width: `${persentaseTerakhir}%`, 
+                background: '#4CAF50', 
+                height: '100%',
+                transition: 'width 0.5s ease'
+            }} 
+          />
         </div>
-
-        <p>{persentaseTerakhir}% selesai</p>
+        <p style={{ fontWeight: 'bold', textAlign: 'right' }}>{persentaseTerakhir}% selesai</p>
       </section>
 
       {/* ===== RIWAYAT PROGRES ===== */}
       <section className="card section-spacing">
         <h3>Riwayat Progres</h3>
 
-        {progressList.length === 0 && <p>Belum ada update progres dari kontraktor</p>}
+        {progressList.length === 0 && <p className="text-gray-500 italic">Belum ada update progres dari kontraktor</p>}
 
         <div className="timeline">
           {progressList.map((item, index) => (
-            <div key={item.id_progress} className="timeline-item horizontal">
-              {/* BADGE */}
-              <div className="timeline-badge styled">
-                <span>{index + 1}</span>
+            <div key={item.id_progress} className="timeline-item horizontal" style={{ marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #eee' }}>
+              
+              {/* HEADER ITEM */}
+              <div className="timeline-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <strong className="progress-title">
+                    #{index + 1} - {item.judul_update || 'Update Progres'}
+                </strong>
+                <span className="progress-date text-sm text-gray-500">
+                    {new Date(item.tgl_update).toLocaleDateString('id-ID', {
+                      day: '2-digit', month: 'long', year: 'numeric',
+                    })}
+                </span>
               </div>
 
-              {/* CARD */}
-              <div className="timeline-card">
-                {/* MEDIA */}
-                <div className="timeline-media">
+              {/* CARD CONTENT */}
+              <div className="timeline-card" style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
+                
+                {/* MEDIA (PERBAIKAN: URL GAMBAR/VIDEO DINAMIS) */}
+                <div className="timeline-media" style={{ width: '150px', flexShrink: 0 }}>
                   {item.foto_progress ? (
                     item.foto_progress.endsWith('.mp4') ? (
                       <video
-                        src={`http://localhost:8000/storage/${item.foto_progress}`}
+                        src={`${API_BASE_URL}/storage/${item.foto_progress}`}
                         controls
+                        style={{ width: '100%', borderRadius: '8px' }}
                       />
                     ) : (
                       <img
-                        src={`http://localhost:8000/storage/${item.foto_progress}`}
-                        alt="Dokumentasi progres"
+                        src={`${API_BASE_URL}/storage/${item.foto_progress}`}
+                        alt="Dokumentasi"
+                        style={{ width: '100%', borderRadius: '8px', objectFit: 'cover' }}
                       />
                     )
                   ) : (
-                    <div className="no-media">Tidak ada dokumentasi</div>
+                    <div className="no-media" style={{ padding: '20px', background: '#f0f0f0', borderRadius: '8px', textAlign: 'center', fontSize: '0.8rem' }}>
+                        Tidak ada foto
+                    </div>
                   )}
                 </div>
 
                 {/* INFO */}
-                <div className="timeline-info">
-                  <strong className="progress-title">
-                    {item.judul_update || 'Update Progres'}
-                  </strong>
-
-                  <div className="progress-percent">{item.persentase}%</div>
-
+                <div className="timeline-info" style={{ flex: 1 }}>
+                  <div className="progress-percent" style={{ fontWeight: 'bold', color: '#2ecc71', marginBottom: '5px' }}>
+                    Progress Capaian: {item.persentase}%
+                  </div>
                   {item.deskripsi && <p className="progress-desc">{item.deskripsi}</p>}
-
-                  <small className="progress-date">
-                    {new Date(item.tgl_update).toLocaleDateString('id-ID', {
-                      day: '2-digit',
-                      month: 'long',
-                      year: 'numeric',
-                    })}
-                  </small>
                 </div>
+
               </div>
             </div>
           ))}

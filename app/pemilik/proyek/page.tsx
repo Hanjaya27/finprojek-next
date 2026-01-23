@@ -16,20 +16,33 @@ export default function ProyekPemilikPage() {
   const [proyek, setProyek] = useState<Proyek[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [error, setError] = useState('');
+
+  // Ambil URL API dari Environment Variable
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
   useEffect(() => {
     const token = localStorage.getItem('auth_token');
     if (!token) return router.push('/auth/login');
 
-    fetch('http://localhost:8000/api/pemilik/proyek', {
-      headers: { Authorization: `Bearer ${token}` },
+    // Gunakan URL dinamis, bukan localhost
+    fetch(`${API_BASE_URL}/api/pemilik/proyek`, {
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json' 
+      },
     })
-      .then(res => res.json())
+      .then(async (res) => {
+        if (!res.ok) throw new Error('Gagal mengambil data proyek');
+        return res.json();
+      })
       .then(setProyek)
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [router]);
+  }, [router, API_BASE_URL]);
 
-  if (loading) return <p>Loading...</p>;
+  if (loading) return <p className="p-4 text-center">Loading data proyek...</p>;
+  if (error) return <p className="p-4 text-center text-red-500">{error}</p>;
 
   return (
     <>
@@ -57,26 +70,30 @@ export default function ProyekPemilikPage() {
             <tbody>
               {proyek.length === 0 ? (
                 <tr>
-                  <td colSpan={4} style={{ textAlign: 'center' }}>
-                    Belum tergabung dalam proyek
+                  <td colSpan={4} style={{ textAlign: 'center', padding: '20px' }}>
+                    Belum tergabung dalam proyek. Silakan gabung proyek baru.
                   </td>
                 </tr>
               ) : (
-                proyek.map(p => (
+                proyek.map((p) => (
                   <tr key={p.id_proyek}>
                     <td>{p.nama_proyek}</td>
                     <td>
                       {p.tgl_mulai
-                        ? new Date(p.tgl_mulai).toLocaleDateString('id-ID')
+                        ? new Date(p.tgl_mulai).toLocaleDateString('id-ID', {
+                            day: 'numeric', month: 'long', year: 'numeric'
+                          })
                         : '-'}
                     </td>
-                    <td>{p.status}</td>
+                    <td>
+                      <span className={`badge ${p.status === 'Selesai' ? 'badge-success' : 'badge-warning'}`}>
+                        {p.status}
+                      </span>
+                    </td>
                     <td>
                       <button
-                        className="btn btn-sm"
-                        onClick={() =>
-                          router.push(`/pemilik/proyek/${p.id_proyek}`)
-                        }
+                        className="btn btn-sm btn-outline"
+                        onClick={() => router.push(`/pemilik/proyek/${p.id_proyek}`)}
                       >
                         Detail
                       </button>
@@ -92,9 +109,7 @@ export default function ProyekPemilikPage() {
       {showModal && (
         <GabungProyekModal
           onClose={() => setShowModal(false)}
-          onSuccess={(p: Proyek) =>
-            setProyek(prev => [...prev, p])
-          }
+          onSuccess={(newProyek: Proyek) => setProyek((prev) => [...prev, newProyek])}
         />
       )}
     </>
