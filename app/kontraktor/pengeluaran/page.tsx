@@ -18,7 +18,6 @@ type Pengeluaran = {
 };
 
 export default function PengeluaranPage() {
-  // Inisialisasi state dengan array kosong []
   const [data, setData] = useState<Pengeluaran[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [jobs, setJobs] = useState<any[]>([]);
@@ -34,17 +33,19 @@ export default function PengeluaranPage() {
   const router = useRouter();
 
   /* =========================
-     FETCH DATA (PERBAIKAN UTAMA)
+     FETCH DATA (CORRECTED)
   ========================== */
   useEffect(() => {
     // 1. Fetch Pengeluaran
     api.get('/pengeluaran')
       .then(res => {
-        // PERBAIKAN: Ambil .data.data (Laravel Wrapper)
+        // SAFETY CHECK: Handle Laravel's API Resource wrapper
+        // If res.data.data exists, use it. Otherwise, use res.data.
         const rawData = res.data.data || res.data;
-        const list = Array.isArray(rawData) ? rawData : []; // Pastikan Array
+        
+        // CRITICAL: Ensure it is an array before mapping
+        const list = Array.isArray(rawData) ? rawData : [];
 
-        // Normalisasi data (handle null values)
         const normalized = list.map((p: any) => ({
           ...p,
           total: p.total ?? 0,
@@ -53,13 +54,15 @@ export default function PengeluaranPage() {
         
         setData(normalized);
       })
-      .catch(err => console.error("Gagal load pengeluaran:", err));
+      .catch(err => {
+        console.error("Gagal load pengeluaran:", err);
+        setData([]); // Set empty array on error to prevent crashes
+      });
 
     // 2. Fetch Proyek
     api.get('/proyek')
       .then(res => {
         const rawData = res.data.data || res.data;
-        // Simpan hanya jika Array, jika tidak simpan []
         setProjects(Array.isArray(rawData) ? rawData : []);
       })
       .catch(err => console.error("Gagal load proyek:", err));
@@ -74,7 +77,7 @@ export default function PengeluaranPage() {
   }, []);
 
   /* =========================
-     FILTER (AMAN TIPE DATA)
+     FILTER
   ========================== */
   const filteredJobs =
     selectedProject === 'all'
@@ -82,7 +85,6 @@ export default function PengeluaranPage() {
       : jobs.filter(j => String(j.id_proyek) === String(selectedProject));
 
   const filteredData = data.filter(d => {
-    // Gunakan String() agar aman membandingkan "5" (string) dengan 5 (number)
     if (selectedProject !== 'all' && String(d.id_proyek) !== String(selectedProject)) return false;
     if (selectedJob !== 'all' && String(d.id_pekerjaan) !== String(selectedJob)) return false;
     return true;
@@ -141,7 +143,7 @@ export default function PengeluaranPage() {
           onChange={e => {
             const val = e.target.value;
             setSelectedProject(val === 'all' ? 'all' : Number(val));
-            setSelectedJob('all'); // Reset job saat ganti proyek
+            setSelectedJob('all'); 
           }}
         >
           <option value="all">Semua Proyek</option>
@@ -286,7 +288,6 @@ export default function PengeluaranPage() {
             onClose={() => setShowTambahModal(false)} 
             onSuccess={() => {
                 setShowTambahModal(false);
-                // Refresh data (Reload page simpel)
                 window.location.reload(); 
             }}
         />
