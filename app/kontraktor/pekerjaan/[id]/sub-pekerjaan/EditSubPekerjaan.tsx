@@ -9,7 +9,7 @@ import api from '@/lib/axios';
 type Props = {
   idSub: number;
   onClose: () => void;
-  onSuccess: () => void; // ✅ TAMBAHAN WAJIB
+  onSuccess: () => void;
 };
 
 type FormState = {
@@ -32,16 +32,26 @@ export default function EditSubPekerjaanModal({
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setLoading(true);
+        // Hapus /api manual, biarkan axios base URL yang handle
         const res = await api.get(`/sub-pekerjaan/${idSub}`);
-        const sub = res.data.sub_pekerjaan;
+        
+        // PERBAIKAN 1: Cek Wrapper Data (Safety Check)
+        // Kadang di res.data.data, kadang di res.data.sub_pekerjaan
+        const responseData = res.data.data || res.data;
+        const sub = responseData.sub_pekerjaan || responseData;
+
+        if (!sub) throw new Error("Data tidak ditemukan");
 
         setForm({
-          nama_sub: sub.nama_sub ?? '',
-          tgl_mulai: sub.tgl_mulai ?? '',
-          keterangan: sub.keterangan ?? '',
+          nama_sub: sub.nama_sub || '',
+          // Pastikan tanggal tidak null/undefined saat masuk ke value input
+          tgl_mulai: sub.tgl_mulai || '', 
+          keterangan: sub.keterangan || '',
         });
+
       } catch (err) {
-        console.error(err);
+        console.error("Error Fetching:", err);
         alert('Gagal memuat data sub pekerjaan');
         onClose();
       } finally {
@@ -49,9 +59,10 @@ export default function EditSubPekerjaanModal({
       }
     };
 
-    fetchData();
+    if (idSub) fetchData();
   }, [idSub, onClose]);
 
+  // Render null jika loading atau form belum siap
   if (loading || !form) return null;
 
   /* =========================
@@ -61,16 +72,25 @@ export default function EditSubPekerjaanModal({
     e.preventDefault();
 
     try {
-      await api.put(`/sub-pekerjaan/${idSub}`, {
+      // PERBAIKAN 2: Validasi Payload
+      // Pastikan tgl_mulai dikirim sebagai NULL jika string kosong
+      // SQL akan error jika dikirim string kosong "" ke kolom DATE
+      const payload = {
         nama_sub: form.nama_sub,
-        tgl_mulai: form.tgl_mulai || null,
+        tgl_mulai: form.tgl_mulai ? form.tgl_mulai : null, 
         keterangan: form.keterangan,
-      });
+      };
 
-      onSuccess(); // ✅ BALIK KE PARENT (REFRESH DATA)
-    } catch (err) {
-      console.error(err);
-      alert('Gagal mengupdate sub pekerjaan');
+      await api.put(`/sub-pekerjaan/${idSub}`, payload);
+
+      alert('Sub Pekerjaan berhasil diupdate!');
+      onSuccess(); // Refresh data di parent
+      onClose();   // Tutup modal
+    } catch (err: any) {
+      console.error("Error Updating:", err);
+      // Tampilkan pesan spesifik dari backend jika ada
+      const msg = err.response?.data?.message || 'Gagal mengupdate sub pekerjaan (Server Error)';
+      alert(msg);
     }
   };
 
@@ -78,19 +98,22 @@ export default function EditSubPekerjaanModal({
      RENDER
   ========================== */
   return (
-    <div className="modal active">
-      <div className="modal-content">
-        <div className="modal-header">
-          <h2>Edit Sub Pekerjaan</h2>
-          <button className="modal-close" onClick={onClose}>
+    <div className="modal active" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9999 }}>
+      <div className="modal-content" style={{ background: 'white', padding: '24px', borderRadius: '8px', width: '100%', maxWidth: '500px' }}>
+        <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+          <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Edit Sub Pekerjaan</h2>
+          <button className="modal-close" onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>
             ✕
           </button>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Nama Sub Pekerjaan</label>
+          {/* NAMA SUB */}
+          <div className="form-group" style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Nama Sub Pekerjaan</label>
             <input
+              className="form-control"
+              style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
               value={form.nama_sub}
               onChange={e =>
                 setForm({ ...form, nama_sub: e.target.value })
@@ -99,10 +122,13 @@ export default function EditSubPekerjaanModal({
             />
           </div>
 
-          <div className="form-group">
-            <label>Tanggal Mulai</label>
+          {/* TANGGAL MULAI */}
+          <div className="form-group" style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Tanggal Mulai</label>
             <input
               type="date"
+              className="form-control"
+              style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
               value={form.tgl_mulai}
               onChange={e =>
                 setForm({ ...form, tgl_mulai: e.target.value })
@@ -110,10 +136,13 @@ export default function EditSubPekerjaanModal({
             />
           </div>
 
-          <div className="form-group">
-            <label>Keterangan (Opsional)</label>
+          {/* KETERANGAN */}
+          <div className="form-group" style={{ marginBottom: '24px' }}>
+            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Keterangan (Opsional)</label>
             <textarea
               rows={3}
+              className="form-control"
+              style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
               value={form.keterangan}
               onChange={e =>
                 setForm({ ...form, keterangan: e.target.value })
@@ -121,11 +150,20 @@ export default function EditSubPekerjaanModal({
             />
           </div>
 
-          <div className="modal-footer">
-            <button type="button" onClick={onClose}>
+          {/* TOMBOL AKSI */}
+          <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+            <button 
+                type="button" 
+                onClick={onClose}
+                style={{ padding: '8px 16px', background: '#e0e0e0', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+            >
               Batal
             </button>
-            <button className="btn btn-primary" type="submit">
+            <button 
+                className="btn btn-primary" 
+                type="submit"
+                style={{ padding: '8px 16px', background: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+            >
               Update
             </button>
           </div>
