@@ -21,7 +21,7 @@ export default function ProgresPage() {
       return;
     }
 
-    fetch('http://localhost:8000/api/progres', {
+    fetch('http://localhost:8000/progres', {
       headers: {
         Authorization: `Bearer ${token}`,
       },
