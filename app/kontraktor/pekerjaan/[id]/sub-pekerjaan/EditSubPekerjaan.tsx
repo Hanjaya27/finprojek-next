@@ -32,7 +32,7 @@ export default function EditSubPekerjaanModal({
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await api.get(`/api/sub-pekerjaan/${idSub}`);
+        const res = await api.get(`/sub-pekerjaan/${idSub}`);
         const sub = res.data.sub_pekerjaan;
 
         setForm({
@@ -61,7 +61,7 @@ export default function EditSubPekerjaanModal({
     e.preventDefault();
 
     try {
-      await api.put(`/api/sub-pekerjaan/${idSub}`, {
+      await api.put(`/sub-pekerjaan/${idSub}`, {
         nama_sub: form.nama_sub,
         tgl_mulai: form.tgl_mulai || null,
         keterangan: form.keterangan,
