@@ -18,6 +18,7 @@ type Pengeluaran = {
 };
 
 export default function PengeluaranPage() {
+  // Inisialisasi state dengan array kosong []
   const [data, setData] = useState<Pengeluaran[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [jobs, setJobs] = useState<any[]>([]);
@@ -33,22 +34,23 @@ export default function PengeluaranPage() {
   const router = useRouter();
 
   /* =========================
-     FETCH DATA (PERBAIKAN DI SINI)
+     FETCH DATA (PERBAIKAN UTAMA)
   ========================== */
   useEffect(() => {
     // 1. Fetch Pengeluaran
     api.get('/pengeluaran')
       .then(res => {
-        // AMBIL DATA DARI WRAPPER (.data.data)
+        // PERBAIKAN: Ambil .data.data (Laravel Wrapper)
         const rawData = res.data.data || res.data;
-        // PASTIKAN ARRAY
-        const list = Array.isArray(rawData) ? rawData : [];
+        const list = Array.isArray(rawData) ? rawData : []; // Pastikan Array
 
+        // Normalisasi data (handle null values)
         const normalized = list.map((p: any) => ({
           ...p,
           total: p.total ?? 0,
           tgl_transaksi: p.tgl_transaksi ?? null,
         }));
+        
         setData(normalized);
       })
       .catch(err => console.error("Gagal load pengeluaran:", err));
@@ -57,6 +59,7 @@ export default function PengeluaranPage() {
     api.get('/proyek')
       .then(res => {
         const rawData = res.data.data || res.data;
+        // Simpan hanya jika Array, jika tidak simpan []
         setProjects(Array.isArray(rawData) ? rawData : []);
       })
       .catch(err => console.error("Gagal load proyek:", err));
@@ -71,7 +74,7 @@ export default function PengeluaranPage() {
   }, []);
 
   /* =========================
-     FILTER (PERBAIKAN SAFE TYPE)
+     FILTER (AMAN TIPE DATA)
   ========================== */
   const filteredJobs =
     selectedProject === 'all'
@@ -79,6 +82,7 @@ export default function PengeluaranPage() {
       : jobs.filter(j => String(j.id_proyek) === String(selectedProject));
 
   const filteredData = data.filter(d => {
+    // Gunakan String() agar aman membandingkan "5" (string) dengan 5 (number)
     if (selectedProject !== 'all' && String(d.id_proyek) !== String(selectedProject)) return false;
     if (selectedJob !== 'all' && String(d.id_pekerjaan) !== String(selectedJob)) return false;
     return true;
