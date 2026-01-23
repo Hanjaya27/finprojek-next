@@ -18,6 +18,8 @@ type Job = {
 export default function PekerjaanPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
+  
+  // Ubah default state biar lebih konsisten string (opsional, tapi saya pertahankan logika anda)
   const [selectedProject, setSelectedProject] = useState<number | 'all'>('all');
 
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
@@ -35,7 +37,12 @@ export default function PekerjaanPage() {
   const fetchPekerjaan = async () => {
     try {
       const res = await api.get('/pekerjaan');
-      setJobs(res.data.data ?? res.data);
+      const data = res.data.data ?? res.data;
+      
+      // DEBUGGING: Cek di Console browser
+      console.log("Data Pekerjaan:", data); 
+      
+      setJobs(data);
     } catch (err) {
       console.error('Gagal ambil pekerjaan:', err);
     }
@@ -56,12 +63,16 @@ export default function PekerjaanPage() {
   }, []);
 
   /* =========================
-     FILTER
+     FILTER (PERBAIKAN DI SINI)
   ========================== */
   const filteredJobs =
     selectedProject === 'all'
       ? jobs
-      : jobs.filter(j => j.id_proyek === selectedProject);
+      : jobs.filter((j) => {
+          // KONVERSI KE STRING AGAR AMAN (String "5" == Number 5)
+          // Pastikan j.id_proyek ada nilainya
+          return String(j.id_proyek) === String(selectedProject);
+        });
 
   /* =========================
      MENU POSITION
@@ -116,13 +127,11 @@ export default function PekerjaanPage() {
         <select
           className="filter-input"
           value={selectedProject}
-          onChange={e =>
-            setSelectedProject(
-              e.target.value === 'all'
-                ? 'all'
-                : Number(e.target.value)
-            )
-          }
+          onChange={(e) => {
+            const val = e.target.value;
+            // Pastikan konversi number berjalan mulus
+            setSelectedProject(val === 'all' ? 'all' : Number(val));
+          }}
         >
           <option value="all">Semua Proyek</option>
           {projects.map(p => (
@@ -158,7 +167,10 @@ export default function PekerjaanPage() {
               {filteredJobs.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="empty">
-                    Tidak ada pekerjaan
+                    {/* Feedback lebih jelas */}
+                    {selectedProject !== 'all' 
+                      ? 'Tidak ada pekerjaan di proyek ini' 
+                      : 'Tidak ada data pekerjaan'}
                   </td>
                 </tr>
               ) : (
@@ -210,7 +222,7 @@ export default function PekerjaanPage() {
         </div>
       </div>
 
-      {/* ACTION MENU */}
+      {/* ACTION MENU & MODALS SAMA SEPERTI SEBELUMNYA */}
       {openMenuId && menuPos && (
         <div
           ref={menuRef}
@@ -258,7 +270,6 @@ export default function PekerjaanPage() {
         </div>
       )}
 
-      {/* MODALS */}
       {showTambahModal && (
         <TambahPekerjaanModal
           onClose={() => setShowTambahModal(false)}
