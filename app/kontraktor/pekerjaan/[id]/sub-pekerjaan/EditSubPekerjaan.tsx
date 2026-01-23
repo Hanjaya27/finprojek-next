@@ -13,10 +13,10 @@ type Props = {
 };
 
 type FormState = {
-  id_pekerjaan: number | string; // Simpan ID Parent untuk safety
+  id_pekerjaan: number | string;
   nama_sub: string;
   tgl_mulai: string;
-  keterangan: string;
+  // field 'keterangan' sudah dihapus
 };
 
 export default function EditSubPekerjaanModal({
@@ -34,20 +34,19 @@ export default function EditSubPekerjaanModal({
     const fetchData = async () => {
       try {
         setLoading(true);
-        // GET Data
         const res = await api.get(`/sub-pekerjaan/${idSub}`);
         
-        // Safety Check Data Wrapper
+        // Safety check wrapper data
         const responseData = res.data.data || res.data;
         const sub = responseData.sub_pekerjaan || responseData;
 
         if (!sub) throw new Error("Data tidak ditemukan");
 
         setForm({
-          id_pekerjaan: sub.id_pekerjaan || '', // Ambil ID parent jaga-jaga backend butuh
+          id_pekerjaan: sub.id_pekerjaan || '',
           nama_sub: sub.nama_sub || '',
-          tgl_mulai: sub.tgl_mulai || '', 
-          keterangan: sub.keterangan || '',
+          tgl_mulai: sub.tgl_mulai || '',
+          // keterangan tidak diambil lagi
         });
 
       } catch (err) {
@@ -71,18 +70,15 @@ export default function EditSubPekerjaanModal({
     e.preventDefault();
 
     try {
-      // PERBAIKAN UTAMA: Method Spoofing
-      // Gunakan POST, tapi sisipkan _method: 'PUT'
-      // Ini teknik standar Laravel di Shared Hosting agar body terbaca
+      // Payload bersih tanpa keterangan
       const payload = {
-        _method: 'PUT', 
-        id_pekerjaan: form.id_pekerjaan, // Kirim ulang ID parent (Safety)
+        _method: 'PUT', // Spoofing PUT untuk hosting
+        id_pekerjaan: form.id_pekerjaan,
         nama_sub: form.nama_sub,
         tgl_mulai: form.tgl_mulai ? form.tgl_mulai : null, 
-        keterangan: form.keterangan,
       };
 
-      // Ganti api.put menjadi api.post
+      // Gunakan POST dengan _method: PUT
       await api.post(`/sub-pekerjaan/${idSub}`, payload);
 
       alert('Sub Pekerjaan berhasil diupdate!');
@@ -90,7 +86,7 @@ export default function EditSubPekerjaanModal({
       onClose();   
     } catch (err: any) {
       console.error("Error Updating:", err);
-      const msg = err.response?.data?.message || 'Gagal mengupdate sub pekerjaan (Server Error)';
+      const msg = err.response?.data?.message || 'Gagal mengupdate sub pekerjaan';
       alert(msg);
     }
   };
@@ -124,7 +120,7 @@ export default function EditSubPekerjaanModal({
           </div>
 
           {/* TANGGAL MULAI */}
-          <div className="form-group" style={{ marginBottom: '16px' }}>
+          <div className="form-group" style={{ marginBottom: '24px' }}>
             <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Tanggal Mulai</label>
             <input
               type="date"
@@ -137,19 +133,7 @@ export default function EditSubPekerjaanModal({
             />
           </div>
 
-          {/* KETERANGAN */}
-          <div className="form-group" style={{ marginBottom: '24px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Keterangan (Opsional)</label>
-            <textarea
-              rows={3}
-              className="form-control"
-              style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
-              value={form.keterangan}
-              onChange={e =>
-                setForm({ ...form, keterangan: e.target.value })
-              }
-            />
-          </div>
+          {/* Input Keterangan sudah dihapus total dari sini */}
 
           {/* TOMBOL AKSI */}
           <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
