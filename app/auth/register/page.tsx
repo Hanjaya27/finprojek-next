@@ -37,7 +37,7 @@ export default function RegisterPage() {
     };
 
     try {
-      await api.post("/api/register", data);
+      await api.post("/register", data);
 
       alert("Registrasi berhasil");
       router.push("/auth/login");
