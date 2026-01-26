@@ -13,27 +13,25 @@ type Proyek = {
 
 export default function ProgresPage() {
   const router = useRouter();
-  // Inisialisasi array kosong
   const [data, setData] = useState<Proyek[]>([]); 
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Gunakan api.get() -> Otomatis handle Base URL & Token
-    // Pastikan endpoint di backend Anda benar '/progres' atau '/proyek'
-    // Jika endpoint khusus progres tidak ada, biasanya pakai '/proyek'
-    api.get('/proyek') 
+    // 🔥 PERBAIKAN DI SINI:
+    // Gunakan endpoint '/progres' agar logika perhitungan persenannya
+    // sama dengan yang ada di controller ProgresController@index
+    api.get('/progres') 
       .then(res => {
-        // PERBAIKAN: Ambil data dari wrapper .data.data
+        // Ambil data dari wrapper .data.data (jika ada) atau .data langsung
         const rawData = res.data.data || res.data;
         
-        // Safety check: Pastikan Array
+        // Safety check: Pastikan result adalah Array
         const list = Array.isArray(rawData) ? rawData : [];
         setData(list);
       })
       .catch(err => {
         console.error("Gagal load progres:", err);
-        // Jika token expired/invalid, axios interceptor biasanya handle redirect
-        // tapi kita bisa jaga-jaga set empty array
+        // Jika gagal, set array kosong agar tidak crash
         setData([]);
       })
       .finally(() => setLoading(false));
@@ -61,12 +59,13 @@ export default function ProgresPage() {
           <tbody>
             {data.length === 0 ? (
               <tr>
-                <td colSpan={3} className="empty">Belum ada data proyek</td>
+                <td colSpan={3} className="empty">
+                  Belum ada proyek yang berjalan.
+                </td>
               </tr>
             ) : (
               data.map(item => {
                 // Konversi aman ke number 0-100
-                // Jika backend belum kirim 'progres', default ke 0
                 const rawProgres = Number(item.progres) || 0;
                 const value = Math.min(100, Math.max(0, rawProgres));
 
