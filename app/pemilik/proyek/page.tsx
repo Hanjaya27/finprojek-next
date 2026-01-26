@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import api from '@/lib/axios'; // Gunakan Axios Helper
 import GabungProyekModal from './GabungProyekModal';
 
 interface Proyek {
@@ -18,23 +19,22 @@ export default function ProyekPemilikPage() {
   const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem('auth_token');
-    if (!token) return router.push('/auth/login');
-
-    fetch('http://localhost:8000/api/pemilik/proyek', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(res => res.json())
-      .then(setProyek)
+    // Gunakan api.get, otomatis handle token & URL
+    api.get('/pemilik/proyek')
+      .then(res => {
+        const raw = res.data.data || res.data;
+        setProyek(Array.isArray(raw) ? raw : []);
+      })
+      .catch(err => console.error("Gagal load proyek:", err))
       .finally(() => setLoading(false));
-  }, [router]);
+  }, []);
 
-  if (loading) return <p>Loading...</p>;
+  if (loading) return <p className="main-content">Loading...</p>;
 
   return (
     <>
       <main className="main-content">
-        <div className="page-header">
+        <div className="page-header" style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
           <h1>Proyek Saya</h1>
           <button
             className="btn btn-primary"
@@ -45,40 +45,45 @@ export default function ProyekPemilikPage() {
         </div>
 
         <div className="card">
-          <table className="table">
+          <table className="modern-table">
             <thead>
               <tr>
                 <th>Nama Proyek</th>
                 <th>Tanggal Mulai</th>
                 <th>Status</th>
-                <th>Aksi</th>
+                <th style={{textAlign:'center'}}>Aksi</th>
               </tr>
             </thead>
             <tbody>
               {proyek.length === 0 ? (
                 <tr>
-                  <td colSpan={4} style={{ textAlign: 'center' }}>
-                    Belum tergabung dalam proyek
+                  <td colSpan={4} style={{ textAlign: 'center', padding: 20, color: '#666' }}>
+                    Anda belum tergabung dalam proyek apapun. Silakan minta kode proyek ke kontraktor.
                   </td>
                 </tr>
               ) : (
                 proyek.map(p => (
                   <tr key={p.id_proyek}>
-                    <td>{p.nama_proyek}</td>
+                    <td><strong>{p.nama_proyek}</strong></td>
                     <td>
                       {p.tgl_mulai
-                        ? new Date(p.tgl_mulai).toLocaleDateString('id-ID')
+                        ? new Date(p.tgl_mulai).toLocaleDateString('id-ID', {day:'numeric', month:'long', year:'numeric'})
                         : '-'}
                     </td>
-                    <td>{p.status}</td>
                     <td>
+                        <span className={`badge badge-${p.status === 'Selesai' ? 'green' : 'blue'}`}>
+                            {p.status}
+                        </span>
+                    </td>
+                    <td style={{textAlign:'center'}}>
                       <button
-                        className="btn btn-sm"
+                        className="btn-outline"
+                        style={{padding:'5px 10px', fontSize:'0.9rem'}}
                         onClick={() =>
                           router.push(`/pemilik/proyek/${p.id_proyek}`)
                         }
                       >
-                        Detail
+                        Lihat Progres
                       </button>
                     </td>
                   </tr>
@@ -92,9 +97,11 @@ export default function ProyekPemilikPage() {
       {showModal && (
         <GabungProyekModal
           onClose={() => setShowModal(false)}
-          onSuccess={(p: Proyek) =>
-            setProyek(prev => [...prev, p])
-          }
+          onSuccess={(p: Proyek) => {
+            // Tambahkan proyek baru ke list tanpa reload
+            setProyek(prev => [...prev, p]);
+            setShowModal(false);
+          }}
         />
       )}
     </>
