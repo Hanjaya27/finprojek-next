@@ -36,7 +36,7 @@ export default function KontraktorLayout({
 
     // 2. FETCH DATA TERBARU DARI SERVER (Agar foto/nama selalu update)
     // Ubah endpoint sesuai endpoint profile kontraktor Anda
-    api.get('/kontraktor/profile') 
+    api.get('/profile') 
       .then(res => {
         const newData = res.data.data || res.data;
         

@@ -31,7 +31,7 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get('/api/admin/users')
+    api.get('/admin/users')
       .then(res => setUsers(res.data))
       .catch(() => alert('Gagal mengambil data dashboard'))
       .finally(() => setLoading(false));
