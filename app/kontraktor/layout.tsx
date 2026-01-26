@@ -4,6 +4,10 @@ import '../../styles/style.css';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import api from '@/lib/axios'; // Gunakan Axios Helper
+
+// Pastikan mengarah ke domain storage yang benar
+const STORAGE_URL = 'https://api.finprojek.web.id/storage/';
 
 export default function KontraktorLayout({
   children,
@@ -15,49 +19,68 @@ export default function KontraktorLayout({
   const [user, setUser] = useState<any>(null);
   const [sisaHari, setSisaHari] = useState<number | null>(null);
 
-  // 1. Ambil URL API dari Environment Variable
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.finprojek.web.id';
-
-  // 2. Buat URL khusus untuk Storage (Hapus akhiran "/api" jika ada)
-  // Ini penting agar link gambar menjadi: https://domain.com/storage/foto.png
-  const STORAGE_BASE_URL = API_BASE_URL.replace(/\/api$/, '');
-
   useEffect(() => {
+    // 1. Cek LocalStorage dulu (biar tampilan instan muncul)
     const token = localStorage.getItem('auth_token');
-    const userData = localStorage.getItem('user');
-
-    if (!token || !userData) {
+    if (!token) {
       router.push('/auth/login');
       return;
     }
 
-    const parsedUser = JSON.parse(userData);
-    setUser(parsedUser);
+    const localData = localStorage.getItem('user');
+    if (localData) {
+      const parsed = JSON.parse(localData);
+      setUser(parsed);
+      hitungSisaHari(parsed);
+    }
 
-    // HITUNG SISA HARI TRIAL (AMAN)
-    if (parsedUser.vip_expired_at) {
-      const expired = new Date(parsedUser.vip_expired_at);
+    // 2. FETCH DATA TERBARU DARI SERVER (Agar foto/nama selalu update)
+    // Ubah endpoint sesuai endpoint profile kontraktor Anda
+    api.get('/kontraktor/profile') 
+      .then(res => {
+        const newData = res.data.data || res.data;
+        
+        // Update State & LocalStorage
+        setUser(newData);
+        localStorage.setItem('user', JSON.stringify(newData));
+        hitungSisaHari(newData);
+      })
+      .catch(err => {
+        console.error("Gagal sync user:", err);
+        if (err.response?.status === 401) logout();
+      });
+
+  }, []); // Run sekali saat mount
+
+  const hitungSisaHari = (userData: any) => {
+    if (userData.vip_expired_at) {
+      const expired = new Date(userData.vip_expired_at);
       const now = new Date();
-
       const diffTime = expired.getTime() - now.getTime();
       const diffDay = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
       setSisaHari(diffDay);
     }
-  }, [router]); // Tambahkan router ke dependency array agar clean
+  };
 
   const logout = () => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user');
-  
-    alert('Anda berhasil logout'); // NOTIFIKASI
-  
-    router.push('/');
+    localStorage.clear();
+    alert('Anda berhasil logout');
+    router.push('/auth/login');
   };
-  
 
-  // PENTING: cegah render sebelum user ada
-  if (!user) return null;
+  // Helper untuk URL Foto Profil yang Aman
+  const getAvatarUrl = () => {
+    if (!user?.foto_profil) return '/images/default-avatar.png'; // Pastikan file ini ada di public/images
+    
+    // Jika di database tersimpan sebagai URL lengkap (misal dari Google Auth atau full path)
+    if (user.foto_profil.startsWith('http')) return user.foto_profil;
+    
+    // Jika hanya filename (misal: avatars/foto.jpg)
+    return `${STORAGE_URL}${user.foto_profil}`;
+  };
+
+  // Cegah render jika user null (loading state sederhana)
+  if (!user) return null; 
 
   return (
     <>
@@ -69,7 +92,7 @@ export default function KontraktorLayout({
           </div>
 
           <div className="header-right">
-            {user.is_premium > 0 ? (
+            {Number(user.is_premium) === 1 ? (
               <div className="vip-badge">👑 VIP</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
@@ -104,15 +127,12 @@ export default function KontraktorLayout({
             onClick={() => router.push('/kontraktor/profile')}
             style={{ cursor: 'pointer' }}
           >
-            {/* 3. PERBAIKAN: Gunakan STORAGE_BASE_URL dinamis */}
+            {/* GUNAKAN HELPER URL */}
             <img
-              src={
-                user.foto_profil
-                  ? `${STORAGE_BASE_URL}/storage/${user.foto_profil}`
-                  : '/images/default-avatar.png'
-              }
+              src={getAvatarUrl()}
               alt="Foto Profil"
               className="sidebar-avatar"
+              style={{ objectFit: 'cover' }}
             />
 
             <div className="sidebar-profile-info">
