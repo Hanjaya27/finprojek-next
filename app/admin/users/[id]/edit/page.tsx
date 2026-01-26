@@ -18,27 +18,36 @@ export default function EditUserPage() {
   });
 
   useEffect(() => {
-    api.get(`/api/admin/users/${id}`)
+    // FIX: Gunakan api.get & handle wrapper
+    api.get(`/admin/users/${id}`)
       .then(res => {
+        const data = res.data.data || res.data;
         setForm({
-          nama_lengkap: res.data.nama_lengkap,
-          email: res.data.email,
-          role: res.data.role,
-          status: res.data.status,
-          is_premium: res.data.is_premium,
+          nama_lengkap: data.nama_lengkap,
+          email: data.email,
+          role: data.role,
+          status: data.status,
+          is_premium: Number(data.is_premium),
         });
       })
-      .catch(() => alert('Gagal memuat data pengguna'));
-  }, [id]);
+      .catch((err) => {
+        console.error(err);
+        alert('Gagal memuat data pengguna');
+        router.push('/admin/users');
+      });
+  }, [id, router]);
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      await api.put(`/api/admin/users/${id}`, form);
+      // FIX: Gunakan api.put & Hapus /api
+      await api.put(`/admin/users/${id}`, form);
+      alert("Data berhasil diperbarui");
       router.push('/admin/users');
     } catch (err: any) {
+      console.error(err);
       alert(err.response?.data?.message || 'Gagal update pengguna');
     } finally {
       setLoading(false);
@@ -46,22 +55,24 @@ export default function EditUserPage() {
   };
 
   return (
-    <div className="modal active">
-      <div className="modal-content">
-        <div className="modal-header">
-          <h2>Edit Pengguna</h2>
+    <div className="modal active" style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center'}}>
+      <div className="modal-content" style={{background:'white', padding:30, borderRadius:10, width:400}}>
+        <div className="modal-header" style={{display:'flex', justifyContent:'space-between', marginBottom:20}}>
+          <h2 style={{margin:0}}>Edit Pengguna</h2>
           <button
             className="modal-close"
             onClick={() => router.push('/admin/users')}
+            style={{border:'none', background:'transparent', fontSize:24, cursor:'pointer'}}
           >
             ✕
           </button>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Nama Lengkap</label>
+          <div className="form-group" style={{marginBottom:15}}>
+            <label style={{display:'block', fontWeight:'bold', marginBottom:5}}>Nama Lengkap</label>
             <input
+              className="form-control" style={{width:'100%', padding:10, border:'1px solid #ccc', borderRadius:5}}
               value={form.nama_lengkap}
               onChange={e =>
                 setForm({ ...form, nama_lengkap: e.target.value })
@@ -70,14 +81,15 @@ export default function EditUserPage() {
             />
           </div>
 
-          <div className="form-group">
-            <label>Email</label>
-            <input value={form.email} disabled />
+          <div className="form-group" style={{marginBottom:15}}>
+            <label style={{display:'block', fontWeight:'bold', marginBottom:5}}>Email</label>
+            <input className="form-control" style={{width:'100%', padding:10, background:'#eee', border:'1px solid #ccc', borderRadius:5}} value={form.email} disabled />
           </div>
 
-          <div className="form-group">
-            <label>Role</label>
+          <div className="form-group" style={{marginBottom:15}}>
+            <label style={{display:'block', fontWeight:'bold', marginBottom:5}}>Role</label>
             <select
+              className="form-control" style={{width:'100%', padding:10, border:'1px solid #ccc', borderRadius:5}}
               value={form.role}
               onChange={e =>
                 setForm({ ...form, role: e.target.value })
@@ -88,9 +100,10 @@ export default function EditUserPage() {
             </select>
           </div>
 
-          <div className="form-group">
-            <label>Status</label>
+          <div className="form-group" style={{marginBottom:15}}>
+            <label style={{display:'block', fontWeight:'bold', marginBottom:5}}>Status</label>
             <select
+              className="form-control" style={{width:'100%', padding:10, border:'1px solid #ccc', borderRadius:5}}
               value={form.status}
               onChange={e =>
                 setForm({ ...form, status: e.target.value })
@@ -102,9 +115,10 @@ export default function EditUserPage() {
           </div>
 
           {form.role === 'kontraktor' && (
-            <div className="form-group">
-              <label>Keanggotaan</label>
+            <div className="form-group" style={{marginBottom:20}}>
+              <label style={{display:'block', fontWeight:'bold', marginBottom:5}}>Keanggotaan</label>
               <select
+                className="form-control" style={{width:'100%', padding:10, border:'1px solid #ccc', borderRadius:5}}
                 value={form.is_premium}
                 onChange={e =>
                   setForm({
@@ -119,11 +133,12 @@ export default function EditUserPage() {
             </div>
           )}
 
-          <div className="modal-footer">
+          <div className="modal-footer" style={{display:'flex', justifyContent:'flex-end', gap:10}}>
             <button
               type="button"
               className="btn btn-secondary"
               onClick={() => router.push('/admin/users')}
+              style={{padding:'10px 20px', borderRadius:5, border:'none', background:'#eee', cursor:'pointer'}}
             >
               Batal
             </button>
@@ -131,6 +146,7 @@ export default function EditUserPage() {
             <button
               className="btn btn-primary"
               disabled={loading}
+              style={{padding:'10px 20px', borderRadius:5, border:'none', background:'#2563eb', color:'white', cursor:'pointer'}}
             >
               {loading ? 'Menyimpan...' : 'Update'}
             </button>
