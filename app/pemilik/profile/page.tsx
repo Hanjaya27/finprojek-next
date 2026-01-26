@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import api from '@/lib/axios'; // Gunakan Axios Helper
+
+const STORAGE_URL = 'https://api.finprojek.web.id/storage/';
 
 type UserProfile = {
   nama_lengkap: string;
@@ -24,47 +27,46 @@ export default function ProfilePemilikPage() {
   });
 
   /* ================= FETCH PROFILE ================= */
-  useEffect(() => {
-    const token = localStorage.getItem('auth_token');
-    if (!token) {
-      router.push('/auth/login');
-      return;
-    }
-
-    fetchProfile(token);
-  }, []);
-
-  const fetchProfile = async (token: string) => {
+  const fetchProfile = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/pemilik/profile', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/json',
-        },
-      });
+      const res = await api.get('/pemilik/profile');
+      
+      // Handle Wrapper
+      const data: UserProfile = res.data.data || res.data;
 
-      if (!res.ok) throw new Error('Unauthorized');
-
-      const data: UserProfile = await res.json();
-
-      setForm({
+      setForm(prev => ({
+        ...prev,
         nama_lengkap: data.nama_lengkap,
         email: data.email ?? '',
         no_telepon: data.no_telepon ?? '',
         password: '',
         foto_profil: null,
-      });
+      }));
 
+      // Set Preview dengan Timestamp agar tidak cache
       if (data.foto_profil) {
-        setPreview(`http://localhost:8000/storage/${data.foto_profil}`);
+        const timestamp = new Date().getTime();
+        const url = data.foto_profil.startsWith('http') 
+            ? data.foto_profil 
+            : `${STORAGE_URL}${data.foto_profil}`;
+        
+        setPreview(`${url}?t=${timestamp}`);
+      } else {
+        setPreview(null);
       }
 
+    } catch (err) {
+      console.error(err);
+      // Jika error 401, redirect
+      // router.push('/auth/login');
+    } finally {
       setLoading(false);
-    } catch {
-      localStorage.clear();
-      router.push('/auth/login');
     }
   };
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
 
   /* ================= HANDLER ================= */
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -89,124 +91,128 @@ export default function ProfilePemilikPage() {
     setPreview(URL.createObjectURL(file));
   };
 
-/* ================= UPDATE ================= */
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+  /* ================= UPDATE ================= */
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  const token = localStorage.getItem('auth_token');
-  if (!token) return;
+    const fd = new FormData();
+    fd.append('nama_lengkap', form.nama_lengkap);
+    fd.append('email', form.email);
+    fd.append('no_telepon', form.no_telepon);
+    if (form.password) fd.append('password', form.password);
+    if (form.foto_profil) fd.append('foto_profil', form.foto_profil);
 
-  const fd = new FormData();
-  fd.append('nama_lengkap', form.nama_lengkap);
-  fd.append('email', form.email);
-  fd.append('no_telepon', form.no_telepon);
-  if (form.password) fd.append('password', form.password);
-  if (form.foto_profil) fd.append('foto_profil', form.foto_profil);
+    try {
+      // Gunakan api.post
+      const res = await api.post('/pemilik/profile', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
 
-  const res = await fetch('http://localhost:8000/api/pemilik/profile', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: fd,
-  });
+      // Update LocalStorage agar sidebar langsung berubah
+      const newData = res.data.data || res.data;
+      localStorage.setItem('user', JSON.stringify(newData));
+      
+      // Trigger custom event agar layout tahu ada perubahan (Optional, tapi bagus)
+      window.dispatchEvent(new Event('storage'));
 
-  if (!res.ok) {
-    alert('Gagal memperbarui profil');
-    return;
-  }
+      alert('Profil berhasil diperbarui');
+      fetchProfile(); // Refresh data
 
-  const result = await res.json();
+    } catch (err: any) {
+      console.error(err);
+      alert(err.response?.data?.message || 'Gagal update profil');
+    }
+  };
 
-  // 🔥 INI KUNCI UTAMANYA
-  localStorage.setItem('user', JSON.stringify(result.data));
-
-  alert('Profil berhasil diperbarui');
-
-  // refresh state profile page
-  fetchProfile(token);
-};
-
-
-
-  /* ================= LOGOUT ================= */
+  /* ================= ACTIONS ================= */
   const handleLogout = () => {
     localStorage.clear();
     router.push('/auth/login');
   };
 
-  /* ================= DELETE ================= */
   const handleDelete = async () => {
     if (!confirm('Yakin ingin menghapus akun?')) return;
-
-    const token = localStorage.getItem('auth_token');
-    if (!token) return;
-
-    await fetch('http://localhost:8000/api/pemilik/profile', {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    localStorage.clear();
-    router.push('/auth/login');
+    try {
+        await api.delete('/pemilik/profile');
+        localStorage.clear();
+        router.push('/auth/login');
+    } catch (err) {
+        alert("Gagal menghapus akun");
+    }
   };
 
   if (loading) return <p className="main-content">Loading...</p>;
 
-  /* ================= VIEW ================= */
   return (
     <main className="main-content">
-      <div className="profile-wrapper">
+      <div className="profile-wrapper" style={{maxWidth: 600, margin: '0 auto'}}>
         <h1 className="title">Profil Pemilik</h1>
 
-        <form onSubmit={handleSubmit} className="profile-card">
-          <div className="avatar-wrapper">
-            <img src={preview || '/avatar.png'} alt="Foto Profil" />
-            <input type="file" accept="image/*" onChange={handleFile} />
+        <form onSubmit={handleSubmit} className="card profile-card" style={{padding: 24}}>
+          
+          <div className="avatar-wrapper" style={{textAlign: 'center', marginBottom: 20}}>
+            <img 
+                src={preview || '/avatar-placeholder.png'} 
+                alt="Foto Profil" 
+                style={{width: 100, height: 100, borderRadius: '50%', objectFit: 'cover', border: '3px solid #eee'}}
+            />
+            <br/>
+            <label style={{color: '#007bff', cursor: 'pointer', marginTop: 10, display: 'inline-block'}}>
+                Ubah Foto
+                <input type="file" accept="image/*" onChange={handleFile} style={{display:'none'}} />
+            </label>
           </div>
 
-          <input
-            name="nama_lengkap"
-            value={form.nama_lengkap}
-            onChange={handleChange}
-            placeholder="Nama Lengkap"
-            required
-          />
+          <div className="form-group" style={{marginBottom: 15}}>
+             <label style={{fontWeight:'bold'}}>Nama Lengkap</label>
+             <input
+                name="nama_lengkap"
+                className="form-control" style={{width:'100%', padding: 8}}
+                value={form.nama_lengkap}
+                onChange={handleChange}
+                required
+              />
+          </div>
 
-          <input
-            name="email"
-            value={form.email}
-            onChange={handleChange}
-            placeholder="Email"
-          />
+          <div className="form-group" style={{marginBottom: 15}}>
+             <label style={{fontWeight:'bold'}}>Email</label>
+             <input
+                name="email"
+                className="form-control" style={{width:'100%', padding: 8, background: '#f5f5f5'}}
+                value={form.email}
+                onChange={handleChange}
+                readOnly
+              />
+          </div>
 
-          <input
-            name="no_telepon"
-            value={form.no_telepon}
-            onChange={handleChange}
-            placeholder="No Telepon"
-          />
+          <div className="form-group" style={{marginBottom: 15}}>
+             <label style={{fontWeight:'bold'}}>No Telepon</label>
+             <input
+                name="no_telepon"
+                className="form-control" style={{width:'100%', padding: 8}}
+                value={form.no_telepon}
+                onChange={handleChange}
+              />
+          </div>
 
-          <input
-            type="password"
-            name="password"
-            value={form.password}
-            onChange={handleChange}
-            placeholder="Password Baru (opsional)"
-          />
+          <div className="form-group" style={{marginBottom: 20}}>
+             <label style={{fontWeight:'bold'}}>Password Baru (Opsional)</label>
+             <input
+                type="password"
+                name="password"
+                className="form-control" style={{width:'100%', padding: 8}}
+                value={form.password}
+                onChange={handleChange}
+                placeholder="Isi jika ingin ganti password"
+              />
+          </div>
 
-          <button className="btn-primary">Simpan</button>
+          <button className="btn-primary" style={{width:'100%', padding: 12}}>Simpan Perubahan</button>
         </form>
 
-        <div className="profile-actions">
-          <button onClick={handleLogout} className="btn-outline">
-            Logout
-          </button>
-          <button onClick={handleDelete} className="btn-danger">
-            Hapus Akun
-          </button>
+        <div className="profile-actions" style={{marginTop: 30, display: 'flex', justifyContent: 'space-between'}}>
+          <button onClick={handleLogout} className="btn-outline">Logout</button>
+          <button onClick={handleDelete} className="btn-danger" style={{color:'red'}}>Hapus Akun</button>
         </div>
       </div>
     </main>

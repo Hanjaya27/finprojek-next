@@ -4,6 +4,9 @@ import '../../styles/style.css';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import api from '@/lib/axios'; // Gunakan Axios Helper
+
+const STORAGE_URL = 'https://api.finprojek.web.id/storage/';
 
 export default function PemilikLayout({
   children,
@@ -15,36 +18,47 @@ export default function PemilikLayout({
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('auth_token');
-    if (!token) {
-      router.push('/auth/login');
-      return;
+    // 1. Cek LocalStorage dulu (biar cepat)
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+        setUser(JSON.parse(storedUser));
     }
 
-    fetch('http://localhost:8000/api/pemilik/profile', {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/json',
-      },
-    })
+    // 2. Fetch data terbaru dari API (background update)
+    api.get('/pemilik/profile')
       .then(res => {
-        if (!res.ok) throw new Error('Unauthorized');
-        return res.json();
-      })
-      .then(data => {
-        // 🔥 update localStorage & state SEKALIGUS
+        const data = res.data.data || res.data;
         localStorage.setItem('user', JSON.stringify(data));
         setUser(data);
       })
-      .catch(() => {
-        localStorage.clear();
-        router.push('/auth/login');
+      .catch((err) => {
+        // Jika 401 Unauthorized, baru logout
+        if (err.response?.status === 401) {
+            localStorage.clear();
+            router.push('/auth/login');
+        }
       });
+      
+    // 3. Listener jika ada update profil dari halaman lain
+    const handleStorageChange = () => {
+        const updatedUser = localStorage.getItem('user');
+        if (updatedUser) setUser(JSON.parse(updatedUser));
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+
   }, []);
 
   const logout = () => {
     localStorage.clear();
     router.push('/auth/login');
+  };
+
+  // Helper URL Foto
+  const getAvatarUrl = () => {
+    if (!user?.foto_profil) return '/images/default-avatar.png'; // Ganti path sesuai aset Anda
+    if (user.foto_profil.startsWith('http')) return user.foto_profil;
+    return `${STORAGE_URL}${user.foto_profil}`;
   };
 
   return (
@@ -53,14 +67,12 @@ export default function PemilikLayout({
       <header>
         <div className="header-content">
           <div className="header-left">
-            <img src="/images/logo.png" alt="Logo" className="logo" />
-            <span>FinProjek</span>
+            {/* Pastikan path logo benar, misal /logo.png */}
+            <span style={{fontWeight:'bold', fontSize:'1.2rem'}}>FinProjek Pemilik</span>
           </div>
 
           <div className="header-right">
-            <button className="logout-btn" onClick={logout}>
-              Logout
-            </button>
+            <button className="logout-btn" onClick={logout}>Logout</button>
           </div>
         </div>
       </header>
@@ -75,13 +87,10 @@ export default function PemilikLayout({
             style={{ cursor: 'pointer' }}
           >
             <img
-              src={
-                user?.foto_profil
-                  ? `http://localhost:8000/storage/${user.foto_profil}`
-                  : '/images/default-avatar.png'
-              }
+              src={getAvatarUrl()}
               alt="Foto Profil"
               className="sidebar-avatar"
+              style={{objectFit: 'cover'}}
             />
 
             <div className="sidebar-profile-info">
@@ -95,6 +104,7 @@ export default function PemilikLayout({
           {/* ===== MENU ===== */}
           <ul className="sidebar-menu">
             {[
+              ['Dashboard', '/pemilik/dashboard'], // Tambahkan Dashboard
               ['Proyek Saya', '/pemilik/proyek'],
               ['Kelola Profil', '/pemilik/profile'],
             ].map(([label, href]) => (
