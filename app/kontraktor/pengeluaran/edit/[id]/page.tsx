@@ -47,53 +47,50 @@ type SubPekerjaan = {
 export default function EditPengeluaran() {
   const { id } = useParams();
   const router = useRouter();
-
   const [loading, setLoading] = useState(true);
-  
-  // State Data Master
+
+  // Data Master
   const [projects, setProjects] = useState<Proyek[]>([]);
   const [jobs, setJobs] = useState<Pekerjaan[]>([]);
-  const [subs, setSubs] = useState<SubPekerjaan[]>([]); // Menyimpan semua sub pekerjaan yang relevan
+  
+  // 🔥 KUNCI PERBAIKAN: State ini akan menampung SEMUA opsi sub-pekerjaan yang dibutuhkan
+  const [subs, setSubs] = useState<SubPekerjaan[]>([]); 
 
   const [form, setForm] = useState({
     no_nota: '',
     tgl_transaksi: '',
     spesifikasi: 'Material',
-    id_proyek: '', 
+    id_proyek: '',
   });
 
   const [details, setDetails] = useState<Detail[]>([]);
 
   /* =========================
-     FETCH DATA INITIAL
+     1. FETCH DATA UTAMA (LOADER)
   ========================== */
   useEffect(() => {
-    const loadInitialData = async () => {
+    const loadData = async () => {
       try {
         setLoading(true);
 
-        // 1. Load Master Data (Proyek & Pekerjaan) + Data Pengeluaran (Paralel)
-        console.log("Mengambil data awal...");
+        // A. Ambil Data Master & Data Pengeluaran Berbarengan
         const [resProyek, resPekerjaan, resPengeluaran] = await Promise.all([
-            api.get('/proyek'),
-            api.get('/pekerjaan'),
-            api.get(`/pengeluaran/${id}`)
+          api.get('/proyek'),
+          api.get('/pekerjaan'),
+          api.get(`/pengeluaran/${id}`)
         ]);
-        
-        // Setup Master Data
+
+        // B. Set Data Master Proyek & Pekerjaan
         const projectsData = Array.isArray(resProyek.data.data) ? resProyek.data.data : resProyek.data;
         const jobsData = Array.isArray(resPekerjaan.data.data) ? resPekerjaan.data.data : resPekerjaan.data;
         
         setProjects(projectsData);
         setJobs(jobsData);
 
-        // Setup Data Pengeluaran
-        const raw = resPengeluaran.data.data || resPengeluaran.data;
-        const p = raw.pengeluaran;
-
-        console.log("Data Pengeluaran:", p);
-        console.log("Data Detail Raw:", raw.details);
-
+        // C. Proses Data Pengeluaran
+        const raw = resPengeluaran.data.data || resPengeluaran.data; 
+        const p = raw.pengeluaran || raw; // Handle struktur data yg mungkin beda
+        
         setForm({
           no_nota: p.no_nota ?? '',
           tgl_transaksi: p.tgl_transaksi ?? '',
@@ -101,102 +98,96 @@ export default function EditPengeluaran() {
           id_proyek: String(p.id_proyek ?? ''),
         });
 
-        // 2. Format Details & Kumpulkan ID Pekerjaan
-        const detailsData = Array.isArray(raw.details) ? raw.details : [];
-        const jobIdsToCheck = new Set<number>();
+        const detailsData = raw.details || [];
+        
+        // D. KUMPULKAN ID PEKERJAAN YANG DIPAKAI
+        // Kita butuh tahu ID pekerjaan apa saja yang ada di edit ini
+        // supaya kita bisa request daftar sub-pekerjaannya ke server.
+        const jobIdsToFetch = new Set<number>();
 
         const formattedDetails = detailsData.map((d: any): Detail => {
-            const dists: Distribusi[] = (Array.isArray(d.distribusi) && d.distribusi.length > 0)
-              ? d.distribusi.map((r: any) => {
-                  // Pastikan ID dikonversi ke Number agar cocok dengan value <option>
-                  const jobId = r.id_pekerjaan ? Number(r.id_pekerjaan) : '';
-                  const subId = r.id_sub ? Number(r.id_sub) : '';
-                  
-                  if (jobId) jobIdsToCheck.add(jobId);
+          const rawDistribusi = d.distribusi || [];
+          let formattedDist: Distribusi[];
 
-                  return {
-                      id_pekerjaan: jobId,
-                      id_sub: subId,
-                      rasio_penggunaan: Number(r.rasio_penggunaan ?? 0),
-                  };
-              })
-              : [{ id_pekerjaan: '', id_sub: '', rasio_penggunaan: 100 }];
+          if (rawDistribusi.length > 0) {
+             formattedDist = rawDistribusi.map((r: any) => {
+                const jobId = r.id_pekerjaan ? Number(r.id_pekerjaan) : '';
+                const subId = r.id_sub ? Number(r.id_sub) : '';
+                
+                // CATAT ID PEKERJAAN UNTUK DI-FETCH SUB-NYA
+                if (jobId) jobIdsToFetch.add(jobId);
 
-            return {
-                nama_item: d.nama_item ?? '',
-                satuan: d.satuan ?? '',
-                banyak: Number(d.banyak ?? 1),
-                harga_satuan: Number(d.harga_satuan ?? 0),
-                allow_partial: false,
-                distribusi: dists
-            };
+                return {
+                  id_pekerjaan: jobId,
+                  id_sub: subId,
+                  rasio_penggunaan: Number(r.rasio_penggunaan || 0)
+                };
+             });
+          } else {
+             formattedDist = [{ id_pekerjaan: '', id_sub: '', rasio_penggunaan: 100 }];
+          }
+
+          return {
+            nama_item: d.nama_item ?? '',
+            satuan: d.satuan ?? '',
+            banyak: Number(d.banyak ?? 0),
+            harga_satuan: Number(d.harga_satuan ?? 0),
+            allow_partial: false,
+            distribusi: formattedDist
+          };
         });
 
-        // Simpan details ke state
-        setDetails(formattedDetails);
+        // E. 🔥 FETCH SUB PEKERJAAN SEKALIGUS (Pre-fetching) 🔥
+        // Sebelum kita setDetails, kita ambil dulu semua opsi sub-pekerjaan yang diperlukan
+        if (jobIdsToFetch.size > 0) {
+          const promises = Array.from(jobIdsToFetch).map(jobId => 
+             api.get(`/pekerjaan/${jobId}/sub-pekerjaan`)
+                .then(res => Array.isArray(res.data.data) ? res.data.data : res.data)
+                .catch(() => []) // Jika error, return array kosong biar ga crash
+          );
 
-        // 3. Load Sub Pekerjaan (CRUCIAL FIX)
-        // Kita fetch semua sub-pekerjaan yang dibutuhkan SEKALIGUS, bukan satu-satu
-        if (jobIdsToCheck.size > 0) {
-            console.log("Mengambil sub-pekerjaan untuk ID:", Array.from(jobIdsToCheck));
-            
-            const subRequests = Array.from(jobIdsToCheck).map(jobId => 
-                api.get(`/pekerjaan/${jobId}/sub-pekerjaan`)
-                   .then(res => {
-                       const data = res.data.data || res.data;
-                       return Array.isArray(data) ? data : [];
-                   })
-                   .catch(err => {
-                       console.error(`Gagal load sub untuk job ${jobId}`, err);
-                       return [];
-                   })
-            );
-
-            // Tunggu semua request selesai
-            const subResults = await Promise.all(subRequests);
-            
-            // Gabungkan semua hasil array menjadi satu (flat)
-            const allSubs = subResults.flat();
-            
-            // Hapus duplikat (jika ada sub yg sama)
-            const uniqueSubs = Array.from(new Map(allSubs.map((item: any) => [item.id_sub, item])).values());
-            
-            console.log("Sub Pekerjaan Terambil:", uniqueSubs);
-            setSubs(uniqueSubs as SubPekerjaan[]);
+          // Tunggu semua request sub pekerjaan selesai
+          const results = await Promise.all(promises);
+          
+          // Gabungkan semua hasil menjadi satu array besar
+          const allSubs = results.flat();
+          
+          // Hapus duplikat (jika ada sub yg sama terambil 2x)
+          const uniqueSubs = Array.from(new Map(allSubs.map((item: any) => [item.id_sub, item])).values());
+          
+          // Simpan ke state subs
+          setSubs(uniqueSubs as SubPekerjaan[]);
         }
 
+        // F. Terakhir, baru set Details agar form terisi
+        setDetails(formattedDetails);
+
       } catch (err) {
-        console.error("Gagal memuat data:", err);
-        alert("Gagal memuat data pengeluaran");
+        console.error("Gagal load data:", err);
+        alert("Gagal memuat data edit.");
       } finally {
         setLoading(false);
       }
     };
 
-    if (id) {
-        loadInitialData();
-    }
+    if (id) loadData();
   }, [id]);
 
-  // Filter Jobs: Pastikan tipe data sama (Number vs Number)
-  const filteredJobs = jobs.filter(
-    j => Number(j.id_proyek) === Number(form.id_proyek)
-  );
 
-  // Filter Subs: Pastikan tipe data sama
-  const filteredSubs = (id_pekerjaan: number | '') => {
-    if (!id_pekerjaan) return [];
-    return subs.filter(s => Number(s.id_pekerjaan) === Number(id_pekerjaan));
+  // Helper untuk memfilter opsi di dropdown
+  const filteredJobs = jobs.filter(j => Number(j.id_proyek) === Number(form.id_proyek));
+  
+  // Fungsi ini akan mencari sub pekerjaan di state 'subs' yang sudah kita pre-fetch tadi
+  const filteredSubs = (jobId: number | '') => {
+      if (!jobId) return [];
+      return subs.filter(s => Number(s.id_pekerjaan) === Number(jobId));
   };
 
+
   /* =========================
-     DETAIL HANDLER
+     HANDLERS (Update & Add)
   ========================== */
-  const updateDetail = <K extends keyof Detail>(
-    i: number,
-    key: K,
-    value: Detail[K]
-  ) => {
+  const updateDetail = <K extends keyof Detail>(i: number, key: K, value: Detail[K]) => {
     setDetails(prev => {
       const copy = [...prev];
       copy[i] = { ...copy[i], [key]: value };
@@ -207,301 +198,175 @@ export default function EditPengeluaran() {
   const addDetail = () => {
     setDetails(prev => [
       ...prev,
-      {
-        nama_item: '',
-        satuan: '',
-        banyak: 1,
-        harga_satuan: 0,
-        allow_partial: false,
-        distribusi: [{ id_pekerjaan: '', id_sub: '', rasio_penggunaan: 100 }],
-      },
+      { nama_item: '', satuan: '', banyak: 1, harga_satuan: 0, allow_partial: false, distribusi: [{ id_pekerjaan: '', id_sub: '', rasio_penggunaan: 100 }] }
     ]);
   };
 
-  const removeDetail = (index: number) => {
-     if(!confirm("Hapus item ini?")) return;
-     setDetails(prev => prev.filter((_, i) => i !== index));
+  const removeDetail = (i: number) => {
+    if (confirm("Hapus baris ini?")) {
+      setDetails(prev => prev.filter((_, idx) => idx !== i));
+    }
   };
 
-  /* =========================
-     DISTRIBUSI HANDLER
-  ========================== */
-  const updateDistribusi = <K extends keyof Distribusi>(
-    i: number,
-    d: number,
-    key: K,
-    value: Distribusi[K]
-  ) => {
+  const updateDistribusi = (i: number, d: number, key: keyof Distribusi, value: any) => {
     setDetails(prev => {
-      const copy = [...prev];
-      const newDistribusi = [...copy[i].distribusi];
-      const dist = { ...newDistribusi[d], [key]: value };
-
-      if (key === 'id_pekerjaan') {
-        dist.id_sub = ''; // Reset sub
+        const copy = [...prev];
+        const newDist = [...copy[i].distribusi];
         
-        // Fetch sub pekerjaan baru jika user mengubah pilihan
-        if (value) {
-          api.get(`/pekerjaan/${value}/sub-pekerjaan`)
-            .then(res => {
-                const newSubs = res.data.data || res.data;
-                const validSubs = Array.isArray(newSubs) ? newSubs : [];
-                
-                setSubs(prevSubs => {
-                    // Gabungkan dengan sub yg sudah ada
-                    const combined = [...prevSubs, ...validSubs];
-                    return Array.from(new Map(combined.map(item => [item.id_sub, item])).values());
-                });
-            })
-            .catch(err => console.error(err));
-        }
-      }
+        newDist[d] = { ...newDist[d], [key]: value };
 
-      newDistribusi[d] = dist;
-      copy[i] = { ...copy[i], distribusi: newDistribusi };
-      return copy;
+        // Jika user GANTI Pekerjaan, ambil sub-pekerjaan baru
+        if (key === 'id_pekerjaan') {
+            newDist[d].id_sub = ''; // Reset pilihan sub
+            
+            if (value) {
+                api.get(`/pekerjaan/${value}/sub-pekerjaan`)
+                   .then(res => {
+                       const newSubs = Array.isArray(res.data.data) ? res.data.data : res.data;
+                       setSubs(curr => {
+                           // Gabungkan data baru dengan yang lama agar opsi lain tidak hilang
+                           const combined = [...curr, ...newSubs];
+                           return Array.from(new Map(combined.map(item => [item.id_sub, item])).values());
+                       });
+                   });
+            }
+        }
+
+        copy[i] = { ...copy[i], distribusi: newDist };
+        return copy;
     });
   };
 
   const addDistribusiIfNeeded = (i: number) => {
-    const total = details[i].distribusi.reduce(
-      (sum, d) => sum + Number(d.rasio_penggunaan || 0),
-      0
-    );
-
-    if (total < 100 && !details[i].allow_partial) {
-      setDetails(prev => {
-        const copy = [...prev];
-        const newDist = [...copy[i].distribusi];
-        newDist.push({
-          id_pekerjaan: '',
-          id_sub: '',
-          rasio_penggunaan: 100 - total,
-        });
-        copy[i] = { ...copy[i], distribusi: newDist };
-        return copy;
-      });
-    }
+      const total = details[i].distribusi.reduce((s, d) => s + Number(d.rasio_penggunaan), 0);
+      if (total < 100 && !details[i].allow_partial) {
+          setDetails(prev => {
+              const copy = [...prev];
+              const newDist = [...copy[i].distribusi, { id_pekerjaan: '', id_sub: '', rasio_penggunaan: 100 - total }];
+              copy[i] = { ...copy[i], distribusi: newDist };
+              return copy;
+          });
+      }
   };
 
-  /* =========================
-     UPDATE SUBMIT
-  ========================== */
-  const handleUpdate = async () => {
-    if (loading) return;
-    
-    // Validasi
-    for (const d of details) {
-      if (!d.nama_item) return alert('Nama item wajib diisi');
-      
-      const total = d.distribusi.reduce((s, r) => s + Number(r.rasio_penggunaan), 0);
-      if (!d.allow_partial && Math.abs(total - 100) > 0.1) {
-        return alert(`Total rasio untuk ${d.nama_item} harus 100% (Saat ini: ${total}%)`);
+  const handleSubmit = async () => {
+      if(loading) return;
+
+      // Validasi
+      for (const d of details) {
+          if (!d.nama_item) return alert("Nama item wajib diisi");
+          const total = d.distribusi.reduce((s, r) => s + Number(r.rasio_penggunaan), 0);
+          if (!d.allow_partial && Math.abs(total - 100) > 0.1) return alert(`Total rasio ${d.nama_item} harus 100%`);
+          
+          for (const dist of d.distribusi) {
+             if (dist.id_pekerjaan && !dist.id_sub) return alert("Sub pekerjaan wajib dipilih");
+          }
       }
 
-      for (const dist of d.distribusi) {
-        if (dist.id_pekerjaan && !dist.id_sub) {
-          return alert('Sub pekerjaan wajib dipilih jika pekerjaan dipilih');
-        }
+      try {
+          setLoading(true);
+          await api.put(`/pengeluaran/${id}`, {
+              ...form,
+              id_proyek: Number(form.id_proyek),
+              details: details
+          });
+          alert("Berhasil update pengeluaran");
+          router.push('/kontraktor/pengeluaran');
+      } catch (e: any) {
+          alert(e.response?.data?.message || "Gagal update");
+      } finally {
+          setLoading(false);
       }
-    }
-
-    try {
-      setLoading(true);
-      await api.put(`/pengeluaran/${id}`, {
-        ...form,
-        id_proyek: Number(form.id_proyek),
-        details: details.map(d => ({
-          ...d,
-          banyak: Number(d.banyak),
-          harga_satuan: Number(d.harga_satuan),
-          distribusi: d.distribusi.map(r => ({
-            ...r,
-            id_pekerjaan: r.id_pekerjaan ? Number(r.id_pekerjaan) : null,
-            id_sub: r.id_sub ? Number(r.id_sub) : null,
-          })),
-        })),
-      });
-
-      alert('Pengeluaran berhasil diperbarui');
-      router.push('/kontraktor/pengeluaran');
-    } catch (err: any) {
-        console.error(err);
-        alert(err.response?.data?.message || "Gagal update pengeluaran");
-    } finally {
-        setLoading(false);
-    }
   };
+
 
   if (loading) return <p className="main-content">Loading data...</p>;
 
   return (
     <main className="main-content">
       <h1>Edit Pengeluaran</h1>
-
-      {/* FORM HEADER */}
-      <div className="card" style={{marginBottom: 20}}>
-        <div className="grid grid-2 gap-4" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <div>
-                <label style={{display:'block', fontWeight:'bold', marginBottom:5}}>No Nota</label>
-                <input
-                    className="form-control" style={{width:'100%', padding:8}}
-                    value={form.no_nota}
-                    onChange={e => setForm({ ...form, no_nota: e.target.value })}
-                />
-            </div>
-
-            <div>
-                <label style={{display:'block', fontWeight:'bold', marginBottom:5}}>Tanggal Transaksi</label>
-                <input
-                    type="date"
-                    className="form-control" style={{width:'100%', padding:8}}
-                    value={form.tgl_transaksi}
-                    onChange={e => setForm({ ...form, tgl_transaksi: e.target.value })}
-                />
-            </div>
-
-            <div>
-                <label style={{display:'block', fontWeight:'bold', marginBottom:5}}>Spesifikasi</label>
-                <select
-                    className="form-control" style={{width:'100%', padding:8}}
-                    value={form.spesifikasi}
-                    onChange={e => setForm({ ...form, spesifikasi: e.target.value })}
-                >
-                    <option>Material</option>
-                    <option>Tenaga</option>
-                </select>
-            </div>
-
-            <div>
-                <label style={{display:'block', fontWeight:'bold', marginBottom:5}}>Proyek</label>
-                <select
-                    className="form-control" style={{width:'100%', padding:8}}
-                    value={form.id_proyek}
-                    onChange={e => setForm({ ...form, id_proyek: e.target.value })}
-                >
-                    <option value="">Pilih Proyek</option>
-                    {projects.map(p => (
-                    <option key={p.id_proyek} value={p.id_proyek}>
-                        {p.nama_proyek}
-                    </option>
-                    ))}
-                </select>
-            </div>
+      
+      {/* HEADER FORM */}
+      <div className="card mb-4" style={{marginBottom: 20}}>
+        <div className="grid grid-2 gap-4" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:15}}>
+           <div>
+               <label className="block font-bold mb-1">No Nota</label>
+               <input className="form-control w-full p-2 border rounded" value={form.no_nota} onChange={e => setForm({...form, no_nota: e.target.value})} />
+           </div>
+           <div>
+               <label className="block font-bold mb-1">Tanggal</label>
+               <input type="date" className="form-control w-full p-2 border rounded" value={form.tgl_transaksi} onChange={e => setForm({...form, tgl_transaksi: e.target.value})} />
+           </div>
+           <div>
+               <label className="block font-bold mb-1">Spesifikasi</label>
+               <select className="form-control w-full p-2 border rounded" value={form.spesifikasi} onChange={e => setForm({...form, spesifikasi: e.target.value})}>
+                   <option>Material</option>
+                   <option>Tenaga</option>
+               </select>
+           </div>
+           <div>
+               <label className="block font-bold mb-1">Proyek</label>
+               <select className="form-control w-full p-2 border rounded" value={form.id_proyek} onChange={e => setForm({...form, id_proyek: e.target.value})}>
+                   <option value="">Pilih Proyek</option>
+                   {projects.map(p => <option key={p.id_proyek} value={p.id_proyek}>{p.nama_proyek}</option>)}
+               </select>
+           </div>
         </div>
       </div>
 
-      {/* DETAIL ITEM */}
+      {/* ITEMS */}
       {details.map((d, i) => (
-        <div key={i} className="card" style={{ marginBottom: 16, position: 'relative' }}>
-          <div style={{display:'flex', justifyContent:'space-between', marginBottom:10}}>
-             <h4 style={{margin:0}}>Item #{i + 1}</h4>
-             {details.length > 1 && (
-                 <button onClick={() => removeDetail(i)} style={{color:'red', background:'none', border:'none', cursor:'pointer'}}>Hapus</button>
-             )}
-          </div>
+         <div key={i} className="card mb-4" style={{marginBottom: 20, padding: 20, border: '1px solid #eee'}}>
+             <div className="flex justify-between mb-2" style={{display:'flex', justifyContent:'space-between'}}>
+                 <h4>Item #{i+1}</h4>
+                 {details.length > 1 && <button onClick={() => removeDetail(i)} className="text-red-500" style={{color:'red'}}>Hapus</button>}
+             </div>
 
-          <div className="grid grid-4 gap-4" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 10, marginBottom: 15 }}>
-            <input
-              className="form-control" style={{padding:8}}
-              placeholder="Nama Item"
-              value={d.nama_item}
-              onChange={e => updateDetail(i, 'nama_item', e.target.value)}
-            />
+             <div className="grid grid-4 gap-2 mb-4" style={{display:'grid', gridTemplateColumns:'2fr 1fr 1fr 1fr', gap:10}}>
+                 <input placeholder="Nama Item" className="form-control p-2 border rounded" value={d.nama_item} onChange={e => updateDetail(i, 'nama_item', e.target.value)} />
+                 <select className="form-control p-2 border rounded" value={d.satuan} onChange={e => updateDetail(i, 'satuan', e.target.value)}>
+                     <option value="">Satuan</option>
+                     {SATUAN_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                 </select>
+                 <input type="number" placeholder="Qty" className="form-control p-2 border rounded" value={d.banyak} onChange={e => updateDetail(i, 'banyak', Number(e.target.value))} />
+                 <input type="number" placeholder="Harga" className="form-control p-2 border rounded" value={d.harga_satuan} onChange={e => updateDetail(i, 'harga_satuan', Number(e.target.value))} />
+             </div>
 
-            <select
-              className="form-control" style={{padding:8}}
-              value={d.satuan}
-              onChange={e => updateDetail(i, 'satuan', e.target.value)}
-            >
-              <option value="">Satuan</option>
-              {SATUAN_OPTIONS.map(s => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
+             <h5 className="text-gray-500 mb-2">Alokasi:</h5>
+             {d.distribusi.map((dist, j) => (
+                 <div key={j} className="grid grid-3 gap-2 mb-2" style={{display:'grid', gridTemplateColumns:'1fr 1fr 100px', gap:10}}>
+                     <select className="form-control p-2 border rounded" value={dist.id_pekerjaan} onChange={e => updateDistribusi(i, j, 'id_pekerjaan', Number(e.target.value))}>
+                         <option value="">Pilih Pekerjaan</option>
+                         {filteredJobs.map(job => <option key={job.id_pekerjaan} value={job.id_pekerjaan}>{job.nama_pekerjaan}</option>)}
+                     </select>
 
-            <input
-              className="form-control" style={{padding:8}}
-              type="number"
-              placeholder="Qty"
-              value={d.banyak}
-              onChange={e => updateDetail(i, 'banyak', Number(e.target.value))}
-            />
+                     <select 
+                        className="form-control p-2 border rounded" 
+                        value={dist.id_sub} 
+                        onChange={e => updateDistribusi(i, j, 'id_sub', Number(e.target.value))} 
+                        disabled={!dist.id_pekerjaan}
+                    >
+                         <option value="">Sub Pekerjaan</option>
+                         {/* 🔥 KARENA KITA SUDAH FETCH SEMUA SUB PEKERJAAN DI USEEFFECT,
+                            FILTEREDSUBS SEKARANG SUDAH PUNYA DATANYA!
+                         */}
+                         {filteredSubs(Number(dist.id_pekerjaan)).map(sub => <option key={sub.id_sub} value={sub.id_sub}>{sub.nama_sub}</option>)}
+                     </select>
 
-            <input
-              className="form-control" style={{padding:8}}
-              type="number"
-              placeholder="Harga"
-              value={d.harga_satuan}
-              onChange={e => updateDetail(i, 'harga_satuan', Number(e.target.value))}
-            />
-          </div>
-
-          <h5 style={{marginBottom:10, color:'#666'}}>Alokasi / Distribusi:</h5>
-          {d.distribusi.map((r, idx) => (
-            <div key={idx} className="grid grid-3 gap-4" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 100px', gap: 10, marginBottom: 8 }}>
-              {/* DROPDOWN PEKERJAAN */}
-              <select
-                className="form-control" style={{padding:8}}
-                value={r.id_pekerjaan}
-                onChange={e => updateDistribusi(i, idx, 'id_pekerjaan', Number(e.target.value))}
-              >
-                <option value="">Pilih Pekerjaan</option>
-                {filteredJobs.map(j => (
-                  <option key={j.id_pekerjaan} value={j.id_pekerjaan}>
-                    {j.nama_pekerjaan}
-                  </option>
-                ))}
-              </select>
-
-              {/* DROPDOWN SUB PEKERJAAN */}
-              <select
-                className="form-control" style={{padding:8}}
-                value={r.id_sub}
-                onChange={e => updateDistribusi(i, idx, 'id_sub', Number(e.target.value))}
-                disabled={!r.id_pekerjaan}
-              >
-                <option value="">Sub Pekerjaan</option>
-                {filteredSubs(Number(r.id_pekerjaan)).map(s => (
-                  <option key={s.id_sub} value={s.id_sub}>
-                    {s.nama_sub}
-                  </option>
-                ))}
-              </select>
-
-              <div style={{position:'relative'}}>
-                  <input
-                    className="form-control" style={{padding:8, width:'100%'}}
-                    type="number"
-                    value={r.rasio_penggunaan}
-                    onChange={e => updateDistribusi(i, idx, 'rasio_penggunaan', Number(e.target.value))}
-                    onBlur={() => addDistribusiIfNeeded(i)}
-                  />
-                  <span style={{position:'absolute', right:5, top:8, fontSize:'0.8rem', color:'#888'}}>%</span>
-              </div>
-            </div>
-          ))}
-
-          <label style={{fontSize:'0.9rem', color:'#666', marginTop:5, display:'block'}}>
-            <input
-              type="checkbox"
-              checked={d.allow_partial}
-              onChange={e => updateDetail(i, 'allow_partial', e.target.checked)}
-            />{' '}
-            Izinkan total distribusi kurang dari 100% (Simpan Sementara)
-          </label>
-        </div>
+                     <div style={{position:'relative'}}>
+                        <input type="number" className="form-control p-2 border rounded w-full" value={dist.rasio_penggunaan} onChange={e => updateDistribusi(i, j, 'rasio_penggunaan', Number(e.target.value))} onBlur={() => addDistribusiIfNeeded(i)} />
+                        <span style={{position:'absolute', right:5, top:8, color:'#888'}}>%</span>
+                     </div>
+                 </div>
+             ))}
+         </div>
       ))}
 
-      <button className="btn-outline" onClick={addDetail} style={{width:'100%', padding:10, marginBottom:20, border:'2px dashed #ccc', color:'#666'}}>
-          + Tambah Material Lain
-      </button>
+      <button onClick={addDetail} className="w-full p-2 border-dashed border-2 text-gray-500 mb-4" style={{width:'100%', padding:10, border:'2px dashed #ccc', marginBottom:20}}>+ Tambah Item</button>
 
-      <div style={{ marginTop: 24, display:'flex', gap:10, justifyContent:'flex-end' }}>
-        <button className="btn-secondary" onClick={() => router.back()} style={{padding:'10px 20px', background:'#eee', border:'none', borderRadius:5}}>Batal</button>
-        <button className="btn-primary" onClick={handleUpdate} disabled={loading} style={{padding:'10px 20px', background:'#2563eb', color:'white', border:'none', borderRadius:5}}>
-          {loading ? 'Menyimpan...' : 'Update Pengeluaran'}
-        </button>
+      <div className="flex justify-end gap-2" style={{display:'flex', justifyContent:'flex-end', gap:10}}>
+          <button onClick={() => router.back()} className="btn-secondary p-2 rounded" style={{background:'#eee', padding:'10px 20px'}}>Batal</button>
+          <button onClick={handleSubmit} className="btn-primary p-2 rounded text-white" style={{background:'#2563eb', color:'white', padding:'10px 20px'}}>Simpan Perubahan</button>
       </div>
     </main>
   );
