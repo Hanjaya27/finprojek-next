@@ -1,138 +1,73 @@
+// 📂 File: src/app/admin/admins/tambah/page.tsx
 'use client';
 
 import { useState } from 'react';
 import api from '@/lib/axios';
 import { useRouter } from 'next/navigation';
 
-type Props = {
-  onClose?: () => void; // optional: modal / page
-};
-
-export default function TambahAdmin({ onClose }: Props) {
+export default function TambahAdminPage() { // Ganti nama komponen biar jelas
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleClose = () => {
-    if (onClose) {
-      onClose(); // modal
-    } else {
-      router.push('/admin/admins'); // page
-    }
-  };
-
-  const handleSubmit = async (
-    e: React.FormEvent<HTMLFormElement>
-  ) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
 
-    // Ambil data dari form
     const formData = new FormData(e.currentTarget);
-    
-    // Ubah ke JSON Object agar lebih rapi & konsisten
     const payload = {
         nama_lengkap: formData.get('nama_lengkap'),
         email: formData.get('email'),
         password: formData.get('password'),
         status: formData.get('status'),
-        role: 'admin', // 🔥 PAKSA ROLE ADMIN
-        is_premium: 0  // Admin tidak butuh premium
+        role: 'admin',
+        is_premium: 0
     };
 
     try {
-      // ✅ FIX: Hapus '/api' di depan, dan gunakan endpoint '/admin/users'
       await api.post('/admin/users', payload);
-      
       alert('Admin berhasil ditambahkan');
-      handleClose(); 
-      
-      // Refresh halaman jika bukan modal
-      if (!onClose) router.refresh();
-      
+      router.push('/admin/admins'); // Kembali ke halaman tabel
     } catch (err: any) {
-      console.error(err);
-      // Handle validasi error Laravel
-      const msg = err.response?.data?.message || 'Gagal menambahkan admin';
-      alert(msg);
+      alert(err.response?.data?.message || 'Gagal menambahkan admin');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="modal active" style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:999}}>
-      <div className="modal-content" style={{background:'white', padding:30, borderRadius:8, width:400}}>
-        <div className="modal-header" style={{display:'flex', justifyContent:'space-between', marginBottom:20}}>
-          <h2 style={{margin:0}}>Tambah Admin</h2>
-          <button
-            type="button"
-            className="modal-close"
-            onClick={handleClose}
-            style={{background:'transparent', border:'none', fontSize:24, cursor:'pointer'}}
-          >
-            ✕
-          </button>
-        </div>
-
+    <div className="main-content" style={{width: 'calc(100vw - 260px)', marginLeft: '260px'}}>
+      <h1>Tambah Admin Baru</h1>
+      <div className="card" style={{maxWidth: 500}}>
         <form onSubmit={handleSubmit}>
+          {/* ... Isi Form Input Nama, Email, Password, Status ... */}
+          {/* Gunakan kode form yang sebelumnya saya berikan */}
+          
           <div className="form-group" style={{marginBottom:15}}>
-            <label style={{fontWeight:'bold'}}>Nama Lengkap</label>
-            <input
-              className="form-control" style={{width:'100%', padding:10, marginTop:5, border:'1px solid #ccc', borderRadius:4}}
-              name="nama_lengkap"
-              required
-              autoComplete="off"
-            />
+            <label>Nama Lengkap</label>
+            <input name="nama_lengkap" className="form-control" required />
           </div>
-
           <div className="form-group" style={{marginBottom:15}}>
-            <label style={{fontWeight:'bold'}}>Email</label>
-            <input
-                className="form-control" style={{width:'100%', padding:10, marginTop:5, border:'1px solid #ccc', borderRadius:4}}
-                type="email"
-                name="email"
-                autoComplete="new-email"
-                required
-              />
+            <label>Email</label>
+            <input name="email" type="email" className="form-control" required />
           </div>
-
           <div className="form-group" style={{marginBottom:15}}>
-            <label style={{fontWeight:'bold'}}>Password</label>
-            <input
-                className="form-control" style={{width:'100%', padding:10, marginTop:5, border:'1px solid #ccc', borderRadius:4}}
-                type="password"
-                name="password"
-                autoComplete="new-password"
-                required
-              />
+            <label>Password</label>
+            <input name="password" type="password" className="form-control" required />
           </div>
-
-          <div className="form-group" style={{marginBottom:20}}>
-            <label style={{fontWeight:'bold'}}>Status</label>
-            <select name="status" className="form-control" style={{width:'100%', padding:10, marginTop:5, border:'1px solid #ccc', borderRadius:4}} required>
-              <option value="aktif">Aktif</option>
-              <option value="tidak aktif">Tidak Aktif</option>
+          <div className="form-group" style={{marginBottom:15}}>
+            <label>Status</label>
+            <select name="status" className="form-control">
+                <option value="aktif">Aktif</option>
+                <option value="tidak aktif">Tidak Aktif</option>
             </select>
           </div>
 
-          <div className="modal-footer" style={{display:'flex', justifyContent:'flex-end', gap:10}}>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={handleClose}
-              style={{padding:'10px 20px', background:'#eee', border:'none', borderRadius:4, cursor:'pointer'}}
-            >
-              Batal
-            </button>
-
-            <button
-              className="btn btn-primary"
-              disabled={loading}
-              style={{padding:'10px 20px', background:'#2563eb', color:'white', border:'none', borderRadius:4, cursor:'pointer'}}
-            >
-              {loading ? 'Menyimpan...' : 'Simpan'}
-            </button>
-          </div>
+          <button className="btn btn-primary" disabled={loading}>
+            {loading ? 'Menyimpan...' : 'Simpan'}
+          </button>
+          <button type="button" className="btn btn-secondary" onClick={() => router.back()} style={{marginLeft:10}}>
+            Batal
+          </button>
         </form>
       </div>
     </div>
