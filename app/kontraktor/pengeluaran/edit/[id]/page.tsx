@@ -361,9 +361,7 @@ export default function EditPengeluaran() {
              ))}
          </div>
       ))}
-
       <button onClick={addDetail} className="w-full p-2 border-dashed border-2 text-gray-500 mb-4" style={{width:'100%', padding:10, border:'2px dashed #ccc', marginBottom:20}}>+ Tambah Item</button>
-
       <div className="flex justify-end gap-2" style={{display:'flex', justifyContent:'flex-end', gap:10}}>
           <button onClick={() => router.back()} className="btn-secondary p-2 rounded" style={{background:'#eee', padding:'10px 20px'}}>Batal</button>
           <button onClick={handleSubmit} className="btn-primary p-2 rounded text-white" style={{background:'#2563eb', color:'white', padding:'10px 20px'}}>Simpan Perubahan</button>
