@@ -16,26 +16,37 @@ export default function EditAdminPage() {
   });
 
   useEffect(() => {
-    // Memanggil API yang benar untuk satu admin
-    api.get(`/api/admin/admins/${id}`)
+    // ✅ FIX: Hapus '/api' dan gunakan endpoint '/admin/users'
+    api.get(`/admin/users/${id}`)
       .then(res => {
+        // ✅ FIX: Handle Wrapper (.data.data)
+        const data = res.data.data || res.data;
+        
         setForm({
-          nama_lengkap: res.data.nama_lengkap,
-          email: res.data.email,
-          status: res.data.status,
+          nama_lengkap: data.nama_lengkap,
+          email: data.email,
+          status: data.status,
         });
       })
-      .catch(() => alert('Gagal memuat data admin'));
-  }, [id]);
+      .catch((err) => {
+        console.error(err);
+        alert('Gagal memuat data admin');
+        router.push('/admin/admins');
+      });
+  }, [id, router]);
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      await api.put(`/api/admin/admins/${id}`, form);
+      // ✅ FIX: Hapus '/api' dan gunakan endpoint '/admin/users'
+      await api.put(`/admin/users/${id}`, form);
+      
+      alert('Admin berhasil diperbarui');
       router.push('/admin/admins');
     } catch (err: any) {
+      console.error(err);
       alert(err.response?.data?.message || 'Gagal update admin');
     } finally {
       setLoading(false);
@@ -43,22 +54,24 @@ export default function EditAdminPage() {
   };
 
   return (
-    <div className="modal active">
-      <div className="modal-content">
-        <div className="modal-header">
-          <h2>Edit Admin</h2>
+    <div className="modal active" style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:999}}>
+      <div className="modal-content" style={{background:'white', padding:30, borderRadius:8, width:400}}>
+        <div className="modal-header" style={{display:'flex', justifyContent:'space-between', marginBottom:20}}>
+          <h2 style={{margin:0}}>Edit Admin</h2>
           <button
             className="modal-close"
             onClick={() => router.push('/admin/admins')}
+            style={{background:'transparent', border:'none', fontSize:24, cursor:'pointer'}}
           >
             ✕
           </button>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Nama Lengkap</label>
+          <div className="form-group" style={{marginBottom:15}}>
+            <label style={{fontWeight:'bold'}}>Nama Lengkap</label>
             <input
+              className="form-control" style={{width:'100%', padding:10, marginTop:5, border:'1px solid #ccc', borderRadius:4}}
               value={form.nama_lengkap}
               onChange={e =>
                 setForm({ ...form, nama_lengkap: e.target.value })
@@ -67,14 +80,19 @@ export default function EditAdminPage() {
             />
           </div>
 
-          <div className="form-group">
-            <label>Email</label>
-            <input value={form.email} disabled />
+          <div className="form-group" style={{marginBottom:15}}>
+            <label style={{fontWeight:'bold'}}>Email</label>
+            <input 
+                className="form-control" style={{width:'100%', padding:10, marginTop:5, background:'#eee', border:'1px solid #ccc', borderRadius:4}}
+                value={form.email} 
+                disabled 
+            />
           </div>
 
-          <div className="form-group">
-            <label>Status</label>
+          <div className="form-group" style={{marginBottom:20}}>
+            <label style={{fontWeight:'bold'}}>Status</label>
             <select
+              className="form-control" style={{width:'100%', padding:10, marginTop:5, border:'1px solid #ccc', borderRadius:4}}
               value={form.status}
               onChange={e =>
                 setForm({ ...form, status: e.target.value })
@@ -85,11 +103,12 @@ export default function EditAdminPage() {
             </select>
           </div>
 
-          <div className="modal-footer">
+          <div className="modal-footer" style={{display:'flex', justifyContent:'flex-end', gap:10}}>
             <button
               type="button"
               className="btn btn-secondary"
               onClick={() => router.push('/admin/admins')}
+              style={{padding:'10px 20px', background:'#eee', border:'none', borderRadius:4, cursor:'pointer'}}
             >
               Batal
             </button>
@@ -97,6 +116,7 @@ export default function EditAdminPage() {
             <button
               className="btn btn-primary"
               disabled={loading}
+              style={{padding:'10px 20px', background:'#2563eb', color:'white', border:'none', borderRadius:4, cursor:'pointer'}}
             >
               {loading ? 'Menyimpan...' : 'Update'}
             </button>
