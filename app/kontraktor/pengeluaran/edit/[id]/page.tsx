@@ -49,15 +49,17 @@ export default function EditPengeluaran() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
+  
+  // State Data Master
   const [projects, setProjects] = useState<Proyek[]>([]);
   const [jobs, setJobs] = useState<Pekerjaan[]>([]);
-  const [subs, setSubs] = useState<SubPekerjaan[]>([]);
+  const [subs, setSubs] = useState<SubPekerjaan[]>([]); // Menyimpan semua sub pekerjaan yang relevan
 
   const [form, setForm] = useState({
     no_nota: '',
     tgl_transaksi: '',
     spesifikasi: 'Material',
-    id_proyek: '', // Disimpan sebagai string untuk form select
+    id_proyek: '', 
   });
 
   const [details, setDetails] = useState<Detail[]>([]);
@@ -70,7 +72,8 @@ export default function EditPengeluaran() {
       try {
         setLoading(true);
 
-        // 1. Load Master Data (Proyek & Pekerjaan) dan Data Pengeluaran secara paralel
+        // 1. Load Master Data (Proyek & Pekerjaan) + Data Pengeluaran (Paralel)
+        console.log("Mengambil data awal...");
         const [resProyek, resPekerjaan, resPengeluaran] = await Promise.all([
             api.get('/proyek'),
             api.get('/pekerjaan'),
@@ -88,7 +91,9 @@ export default function EditPengeluaran() {
         const raw = resPengeluaran.data.data || resPengeluaran.data;
         const p = raw.pengeluaran;
 
-        // Set Form Utama
+        console.log("Data Pengeluaran:", p);
+        console.log("Data Detail Raw:", raw.details);
+
         setForm({
           no_nota: p.no_nota ?? '',
           tgl_transaksi: p.tgl_transaksi ?? '',
@@ -96,18 +101,17 @@ export default function EditPengeluaran() {
           id_proyek: String(p.id_proyek ?? ''),
         });
 
-        // Setup Details & Collect Job IDs
+        // 2. Format Details & Kumpulkan ID Pekerjaan
         const detailsData = Array.isArray(raw.details) ? raw.details : [];
         const jobIdsToCheck = new Set<number>();
 
         const formattedDetails = detailsData.map((d: any): Detail => {
-            // Mapping distribusi
             const dists: Distribusi[] = (Array.isArray(d.distribusi) && d.distribusi.length > 0)
               ? d.distribusi.map((r: any) => {
+                  // Pastikan ID dikonversi ke Number agar cocok dengan value <option>
                   const jobId = r.id_pekerjaan ? Number(r.id_pekerjaan) : '';
                   const subId = r.id_sub ? Number(r.id_sub) : '';
                   
-                  // Kumpulkan ID Pekerjaan untuk fetch sub nanti
                   if (jobId) jobIdsToCheck.add(jobId);
 
                   return {
@@ -128,25 +132,36 @@ export default function EditPengeluaran() {
             };
         });
 
+        // Simpan details ke state
         setDetails(formattedDetails);
 
-        // 2. Load Sub Pekerjaan (Hanya yang diperlukan)
+        // 3. Load Sub Pekerjaan (CRUCIAL FIX)
+        // Kita fetch semua sub-pekerjaan yang dibutuhkan SEKALIGUS, bukan satu-satu
         if (jobIdsToCheck.size > 0) {
-            // Gunakan Promise.all agar semua sub-pekerjaan selesai diload sebelum render
+            console.log("Mengambil sub-pekerjaan untuk ID:", Array.from(jobIdsToCheck));
+            
             const subRequests = Array.from(jobIdsToCheck).map(jobId => 
                 api.get(`/pekerjaan/${jobId}/sub-pekerjaan`)
-                   .then(res => (Array.isArray(res.data.data) ? res.data.data : res.data))
-                   .catch(() => []) // Return array kosong jika error agar Promise.all tidak fail
+                   .then(res => {
+                       const data = res.data.data || res.data;
+                       return Array.isArray(data) ? data : [];
+                   })
+                   .catch(err => {
+                       console.error(`Gagal load sub untuk job ${jobId}`, err);
+                       return [];
+                   })
             );
 
+            // Tunggu semua request selesai
             const subResults = await Promise.all(subRequests);
             
-            // Gabungkan semua hasil array menjadi satu array flat
+            // Gabungkan semua hasil array menjadi satu (flat)
             const allSubs = subResults.flat();
             
-            // Hapus duplikat berdasarkan id_sub (jika ada)
+            // Hapus duplikat (jika ada sub yg sama)
             const uniqueSubs = Array.from(new Map(allSubs.map((item: any) => [item.id_sub, item])).values());
             
+            console.log("Sub Pekerjaan Terambil:", uniqueSubs);
             setSubs(uniqueSubs as SubPekerjaan[]);
         }
 
@@ -163,14 +178,16 @@ export default function EditPengeluaran() {
     }
   }, [id]);
 
-  // Filter Jobs berdasarkan Proyek yang dipilih di Form
+  // Filter Jobs: Pastikan tipe data sama (Number vs Number)
   const filteredJobs = jobs.filter(
-    j => j.id_proyek === Number(form.id_proyek)
+    j => Number(j.id_proyek) === Number(form.id_proyek)
   );
 
-  // Filter Subs berdasarkan ID Pekerjaan di baris distribusi
-  const filteredSubs = (id_pekerjaan: number | '') =>
-    subs.filter(s => s.id_pekerjaan === Number(id_pekerjaan));
+  // Filter Subs: Pastikan tipe data sama
+  const filteredSubs = (id_pekerjaan: number | '') => {
+    if (!id_pekerjaan) return [];
+    return subs.filter(s => Number(s.id_pekerjaan) === Number(id_pekerjaan));
+  };
 
   /* =========================
      DETAIL HANDLER
@@ -221,16 +238,18 @@ export default function EditPengeluaran() {
       const dist = { ...newDistribusi[d], [key]: value };
 
       if (key === 'id_pekerjaan') {
-        dist.id_sub = ''; // Reset sub jika pekerjaan berubah
+        dist.id_sub = ''; // Reset sub
         
-        // Fetch sub pekerjaan baru jika user mengubah pekerjaan
+        // Fetch sub pekerjaan baru jika user mengubah pilihan
         if (value) {
           api.get(`/pekerjaan/${value}/sub-pekerjaan`)
             .then(res => {
-                const newSubs = Array.isArray(res.data.data) ? res.data.data : res.data;
+                const newSubs = res.data.data || res.data;
+                const validSubs = Array.isArray(newSubs) ? newSubs : [];
+                
                 setSubs(prevSubs => {
-                    const combined = [...prevSubs, ...newSubs];
-                    // Hapus duplikat
+                    // Gabungkan dengan sub yg sudah ada
+                    const combined = [...prevSubs, ...validSubs];
                     return Array.from(new Map(combined.map(item => [item.id_sub, item])).values());
                 });
             })
