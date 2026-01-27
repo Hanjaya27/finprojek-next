@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import api from '@/lib/axios';
+import api from '@/lib/axios'; // Gunakan axios helper
 
 export default function TambahProyekModal({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(false);
@@ -13,85 +13,94 @@ export default function TambahProyekModal({ onClose }: { onClose: () => void }) 
     const form = e.currentTarget;
     const formData = new FormData();
 
-    formData.append('nama_proyek', (form.nama as HTMLInputElement).value);
-    formData.append('lokasi', (form.lokasi as HTMLInputElement).value);
-    formData.append('biaya_kesepakatan', (form.biaya as HTMLInputElement).value);
-    formData.append('tgl_mulai', (form.tgl_mulai as HTMLInputElement).value);
-    formData.append('tgl_selesai', (form.tgl_selesai as HTMLInputElement).value);
+    // Ambil value dengan aman
+    formData.append('nama_proyek', (form.elements.namedItem('nama') as HTMLInputElement).value);
+    formData.append('lokasi', (form.elements.namedItem('lokasi') as HTMLInputElement).value);
+    formData.append('biaya_kesepakatan', (form.elements.namedItem('biaya') as HTMLInputElement).value);
+    formData.append('tgl_mulai', (form.elements.namedItem('tgl_mulai') as HTMLInputElement).value);
+    formData.append('tgl_selesai', (form.elements.namedItem('tgl_selesai') as HTMLInputElement).value);
 
-    // dokumen MOU opsional
-    const mouFile = (form.mou as HTMLInputElement).files;
-    if (mouFile && mouFile.length > 0) {
-      formData.append('dokumen_mou', mouFile[0]);
+    // Dokumen MOU opsional
+    const mouInput = form.elements.namedItem('mou') as HTMLInputElement;
+    if (mouInput.files && mouInput.files.length > 0) {
+      formData.append('dokumen_mou', mouInput.files[0]);
     }
 
     try {
-      const token = localStorage.getItem('token');
-    
-      await api.post('/proyek', formData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      // ✅ FIX: Hapus header manual. Biarkan axios mengatur boundary multipart.
+      // ✅ FIX: Hapus pengambilan token manual, api helper sudah mengurusnya.
+      await api.post('/proyek', formData);
     
       alert('Proyek berhasil ditambahkan');
       onClose();
-      setTimeout(() => location.reload(), 300);
+      // Gunakan router refresh atau window location reload
+      window.location.reload(); 
     } catch (err: any) {
-      console.log('STATUS:', err.response?.status);
-      console.log('DATA:', err.response?.data);
-      alert(err.response?.data?.message || 'Gagal menambahkan proyek');
-    }
-     finally {
+      console.error(err);
+      const msg = err.response?.data?.message || 'Gagal menambahkan proyek';
+      
+      // Cek jika error validasi spesifik
+      if (err.response?.data?.errors) {
+         const details = Object.values(err.response.data.errors).flat().join('\n');
+         alert(`${msg}\n${details}`);
+      } else {
+         alert(msg);
+      }
+    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="modal active">
-      <div className="modal-content">
-        <div className="modal-header">
-          <h2>Tambah Proyek Baru</h2>
-          <button className="modal-close" onClick={onClose}>✕</button>
+    <div className="modal active" style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:999}}>
+      <div className="modal-content" style={{background:'white', padding:30, borderRadius:8, width:500, maxWidth:'95%'}}>
+        <div className="modal-header" style={{display:'flex', justifyContent:'space-between', marginBottom:20}}>
+          <h2 style={{margin:0}}>Tambah Proyek Baru</h2>
+          <button type="button" className="modal-close" onClick={onClose} style={{background:'transparent', border:'none', fontSize:24, cursor:'pointer'}}>✕</button>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Nama Proyek</label>
-            <input name="nama" required />
+          <div className="form-group" style={{marginBottom:15}}>
+            <label style={{fontWeight:'bold', display:'block', marginBottom:5}}>Nama Proyek</label>
+            <input name="nama" className="form-control" style={{width:'100%', padding:10, border:'1px solid #ccc', borderRadius:4}} required />
           </div>
 
-          <div className="form-group">
-            <label>Lokasi</label>
-            <input name="lokasi" required />
+          <div className="form-group" style={{marginBottom:15}}>
+            <label style={{fontWeight:'bold', display:'block', marginBottom:5}}>Lokasi</label>
+            <input name="lokasi" className="form-control" style={{width:'100%', padding:10, border:'1px solid #ccc', borderRadius:4}} required />
           </div>
 
-          <div className="form-group">
-            <label>Biaya Kesepakatan</label>
-            <input name="biaya" type="number" required />
+          <div className="form-group" style={{marginBottom:15}}>
+            <label style={{fontWeight:'bold', display:'block', marginBottom:5}}>Biaya Kesepakatan (Rp)</label>
+            <input name="biaya" type="number" className="form-control" style={{width:'100%', padding:10, border:'1px solid #ccc', borderRadius:4}} required />
           </div>
 
-          <div className="form-group">
-            <label>Tanggal Mulai</label>
-            <input name="tgl_mulai" type="date" required />
+          <div className="form-group" style={{marginBottom:15}}>
+            <label style={{fontWeight:'bold', display:'block', marginBottom:5}}>Tanggal Mulai</label>
+            <input name="tgl_mulai" type="date" className="form-control" style={{width:'100%', padding:10, border:'1px solid #ccc', borderRadius:4}} required />
           </div>
 
-          <div className="form-group">
-            <label>Tanggal Selesai</label>
-            <input name="tgl_selesai" type="date" required />
+          <div className="form-group" style={{marginBottom:15}}>
+            <label style={{fontWeight:'bold', display:'block', marginBottom:5}}>Tanggal Selesai</label>
+            <input name="tgl_selesai" type="date" className="form-control" style={{width:'100%', padding:10, border:'1px solid #ccc', borderRadius:4}} required />
           </div>
 
-          <div className="form-group">
-            <label>Dokumen MOU (PDF/DOC) - Opsional</label>
-            <input name="mou" type="file" accept=".pdf,.doc,.docx" />
+          <div className="form-group" style={{marginBottom:20}}>
+            <label style={{fontWeight:'bold', display:'block', marginBottom:5}}>Dokumen MOU (PDF/DOC) - Opsional</label>
+            <input 
+                name="mou" 
+                type="file" 
+                accept=".pdf,.doc,.docx"
+                className="form-control"
+            />
+            <small style={{color:'#666'}}>Maksimal ukuran file tergantung server (biasanya 2MB)</small>
           </div>
 
-          <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
+          <div className="modal-footer" style={{display:'flex', justifyContent:'flex-end', gap:10}}>
+            <button type="button" className="btn btn-secondary" onClick={onClose} style={{padding:'10px 20px', background:'#eee', border:'none', borderRadius:4, cursor:'pointer'}}>
               Batal
             </button>
-            <button type="submit" className="btn btn-primary" disabled={loading}>
+            <button type="submit" className="btn btn-primary" disabled={loading} style={{padding:'10px 20px', background:'#2563eb', color:'white', border:'none', borderRadius:4, cursor:'pointer'}}>
               {loading ? 'Menyimpan...' : 'Simpan Proyek'}
             </button>
           </div>
