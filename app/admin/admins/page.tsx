@@ -1,140 +1,190 @@
 'use client';
 
-import { useState } from 'react';
-import api from '@/lib/axios';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import api from '@/lib/axios'; // ✅ Gunakan Axios Helper
 
-type Props = {
-  onClose?: () => void; // optional: modal / page
+type Admin = {
+  id_user: number;
+  nama_lengkap: string;
+  email: string;
+  role: string; // Tambahkan role untuk filter
+  status: 'aktif' | 'tidak aktif';
 };
 
-export default function TambahAdmin({ onClose }: Props) {
-  const [loading, setLoading] = useState(false);
+export default function AdminManagementPage() {
+  const [admins, setAdmins] = useState<Admin[]>([]);
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  const handleClose = () => {
-    if (onClose) {
-      onClose(); // modal
-    } else {
-      router.push('/admin/admins'); // page
-    }
-  };
-
-  const handleSubmit = async (
-    e: React.FormEvent<HTMLFormElement>
-  ) => {
-    e.preventDefault();
-    setLoading(true);
-
-    // Ambil data dari form
-    const formData = new FormData(e.currentTarget);
-    
-    // Ubah ke JSON Object agar lebih rapi & konsisten
-    const payload = {
-        nama_lengkap: formData.get('nama_lengkap'),
-        email: formData.get('email'),
-        password: formData.get('password'),
-        status: formData.get('status'),
-        role: 'admin', // 🔥 PAKSA ROLE ADMIN
-        is_premium: 0  // Admin tidak butuh premium
-    };
-
+  /* ================= LOAD ADMINS ================= */
+  const loadAdmins = async () => {
     try {
-      // ✅ FIX: Hapus '/api' di depan, dan gunakan endpoint '/admin/users'
-      await api.post('/admin/users', payload);
+      // 1. Gunakan api.get (Otomatis Base URL & Token)
+      const res = await api.get('/admin/users');
+
+      // 2. Handle Wrapper (.data atau .data.data)
+      const rawData = res.data.data || res.data;
+      const list = Array.isArray(rawData) ? rawData : [];
+
+      // 3. Filter Khusus Role 'admin'
+      const adminList = list.filter((u: any) => u.role === 'admin');
       
-      alert('Admin berhasil ditambahkan');
-      handleClose(); 
-      
-      // Refresh halaman jika bukan modal
-      if (!onClose) router.refresh();
-      
-    } catch (err: any) {
-      console.error(err);
-      // Handle validasi error Laravel
-      const msg = err.response?.data?.message || 'Gagal menambahkan admin';
-      alert(msg);
+      setAdmins(adminList);
+    } catch (err) {
+      console.error("Gagal load admin:", err);
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    loadAdmins();
+  }, []);
+
+  /* ================= DELETE ADMIN ================= */
+  const deleteAdmin = async (id: number) => {
+    if (!confirm('Yakin ingin menghapus admin ini?')) return;
+
+    try {
+      // Gunakan api.delete
+      await api.delete(`/admin/users/${id}`);
+      
+      alert('Admin berhasil dihapus');
+      setOpenMenuId(null);
+      loadAdmins(); // Refresh data
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Gagal menghapus admin');
+    }
+  };
+
+  if (loading) return <p className="main-content" style={{marginLeft: '260px'}}>Loading data admin...</p>;
+
   return (
-    <div className="modal active" style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:999}}>
-      <div className="modal-content" style={{background:'white', padding:30, borderRadius:8, width:400}}>
-        <div className="modal-header" style={{display:'flex', justifyContent:'space-between', marginBottom:20}}>
-          <h2 style={{margin:0}}>Tambah Admin</h2>
-          <button
-            type="button"
-            className="modal-close"
-            onClick={handleClose}
-            style={{background:'transparent', border:'none', fontSize:24, cursor:'pointer'}}
-          >
-            ✕
-          </button>
+    <main
+      className="main-content"
+      style={{
+        width: 'calc(100vw - 260px)',
+        marginLeft: '260px',
+        paddingRight: 24,
+      }}
+    >
+      {/* HEADER */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '1.5rem',
+        }}
+      >
+        <div>
+          <h1>Kelola Admin</h1>
+          <p style={{ color: '#777' }}>
+            Manajemen akun administrator sistem
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="form-group" style={{marginBottom:15}}>
-            <label style={{fontWeight:'bold'}}>Nama Lengkap</label>
-            <input
-              className="form-control" style={{width:'100%', padding:10, marginTop:5, border:'1px solid #ccc', borderRadius:4}}
-              name="nama_lengkap"
-              required
-              autoComplete="off"
-            />
-          </div>
-
-          <div className="form-group" style={{marginBottom:15}}>
-            <label style={{fontWeight:'bold'}}>Email</label>
-            <input
-                className="form-control" style={{width:'100%', padding:10, marginTop:5, border:'1px solid #ccc', borderRadius:4}}
-                type="email"
-                name="email"
-                autoComplete="new-email"
-                required
-              />
-          </div>
-
-          <div className="form-group" style={{marginBottom:15}}>
-            <label style={{fontWeight:'bold'}}>Password</label>
-            <input
-                className="form-control" style={{width:'100%', padding:10, marginTop:5, border:'1px solid #ccc', borderRadius:4}}
-                type="password"
-                name="password"
-                autoComplete="new-password"
-                required
-              />
-          </div>
-
-          <div className="form-group" style={{marginBottom:20}}>
-            <label style={{fontWeight:'bold'}}>Status</label>
-            <select name="status" className="form-control" style={{width:'100%', padding:10, marginTop:5, border:'1px solid #ccc', borderRadius:4}} required>
-              <option value="aktif">Aktif</option>
-              <option value="tidak aktif">Tidak Aktif</option>
-            </select>
-          </div>
-
-          <div className="modal-footer" style={{display:'flex', justifyContent:'flex-end', gap:10}}>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={handleClose}
-              style={{padding:'10px 20px', background:'#eee', border:'none', borderRadius:4, cursor:'pointer'}}
-            >
-              Batal
-            </button>
-
-            <button
-              className="btn btn-primary"
-              disabled={loading}
-              style={{padding:'10px 20px', background:'#2563eb', color:'white', border:'none', borderRadius:4, cursor:'pointer'}}
-            >
-              {loading ? 'Menyimpan...' : 'Simpan'}
-            </button>
-          </div>
-        </form>
+        <button
+          className="btn btn-primary"
+          onClick={() => router.push('/admin/admins/tambah')}
+        >
+          + Tambah Admin
+        </button>
       </div>
-    </div>
+
+      {/* TABLE */}
+      <div className="card">
+        <table className="modern-table" style={{ width: '100%' }}>
+          <thead>
+            <tr>
+              <th>Nama</th>
+              <th>Email</th>
+              <th>Status</th>
+              <th style={{ textAlign: 'center', width: 80 }}>
+                Aksi
+              </th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {admins.length === 0 ? (
+              <tr>
+                <td colSpan={4} style={{ textAlign: 'center', padding: 20 }}>
+                  Tidak ada data admin lain.
+                </td>
+              </tr>
+            ) : (
+              admins.map(a => (
+                <tr key={a.id_user}>
+                  <td style={{fontWeight: 500}}>{a.nama_lengkap}</td>
+                  <td>{a.email}</td>
+                  <td>
+                    <span style={{
+                        color: a.status === 'aktif' ? '#16a34a' : '#dc2626',
+                        fontWeight: 'bold',
+                        textTransform: 'capitalize'
+                    }}>
+                        {a.status}
+                    </span>
+                  </td>
+
+                  {/* AKSI TITIK 3 */}
+                  <td style={{ textAlign: 'center', position: 'relative' }}>
+                    <button
+                      onClick={() => setOpenMenuId(openMenuId === a.id_user ? null : a.id_user)}
+                      style={{ background: 'transparent', border: 'none', fontSize: 20, cursor: 'pointer' }}
+                    >
+                      ⋮
+                    </button>
+
+                    {openMenuId === a.id_user && (
+                      <>
+                        {/* Overlay transparan untuk menutup menu saat klik luar */}
+                        <div 
+                            style={{position: 'fixed', inset: 0, zIndex: 99}} 
+                            onClick={() => setOpenMenuId(null)}
+                        />
+                        
+                        <div
+                          style={{
+                            position: 'absolute',
+                            right: 20,
+                            top: 30,
+                            background: '#fff',
+                            border: '1px solid #ddd',
+                            borderRadius: 6,
+                            boxShadow: '0 4px 10px rgba(0,0,0,0.1)',
+                            zIndex: 100,
+                            minWidth: 120,
+                            textAlign: 'left',
+                            overflow: 'hidden'
+                          }}
+                        >
+                          <button
+                            style={{ display: 'block', width: '100%', padding: '10px 15px', border: 'none', background: 'white', textAlign: 'left', cursor: 'pointer', fontSize: '0.9rem' }}
+                            onClick={() => router.push(`/admin/admins/${a.id_user}/edit`)}
+                          >
+                            ✏️ Edit
+                          </button>
+
+                          <button
+                            style={{ display: 'block', width: '100%', padding: '10px 15px', border: 'none', background: 'white', textAlign: 'left', cursor: 'pointer', color: '#dc2626', fontSize: '0.9rem', borderTop: '1px solid #eee' }}
+                            onClick={() => deleteAdmin(a.id_user)}
+                          >
+                            🗑️ Hapus
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </main>
   );
 }
