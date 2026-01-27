@@ -53,7 +53,7 @@ export default function EditPengeluaran() {
   const [projects, setProjects] = useState<Proyek[]>([]);
   const [jobs, setJobs] = useState<Pekerjaan[]>([]);
   
-  // 🔥 KUNCI PERBAIKAN: State ini akan menampung SEMUA opsi sub-pekerjaan yang dibutuhkan
+  // State untuk menampung semua opsi sub-pekerjaan yang dibutuhkan
   const [subs, setSubs] = useState<SubPekerjaan[]>([]); 
 
   const [form, setForm] = useState({
@@ -101,8 +101,6 @@ export default function EditPengeluaran() {
         const detailsData = raw.details || [];
         
         // D. KUMPULKAN ID PEKERJAAN YANG DIPAKAI
-        // Kita butuh tahu ID pekerjaan apa saja yang ada di edit ini
-        // supaya kita bisa request daftar sub-pekerjaannya ke server.
         const jobIdsToFetch = new Set<number>();
 
         const formattedDetails = detailsData.map((d: any): Detail => {
@@ -114,7 +112,6 @@ export default function EditPengeluaran() {
                 const jobId = r.id_pekerjaan ? Number(r.id_pekerjaan) : '';
                 const subId = r.id_sub ? Number(r.id_sub) : '';
                 
-                // CATAT ID PEKERJAAN UNTUK DI-FETCH SUB-NYA
                 if (jobId) jobIdsToFetch.add(jobId);
 
                 return {
@@ -137,29 +134,20 @@ export default function EditPengeluaran() {
           };
         });
 
-        // E. 🔥 FETCH SUB PEKERJAAN SEKALIGUS (Pre-fetching) 🔥
-        // Sebelum kita setDetails, kita ambil dulu semua opsi sub-pekerjaan yang diperlukan
+        // E. FETCH SUB PEKERJAAN SEKALIGUS (Pre-fetching)
         if (jobIdsToFetch.size > 0) {
           const promises = Array.from(jobIdsToFetch).map(jobId => 
              api.get(`/pekerjaan/${jobId}/sub-pekerjaan`)
                 .then(res => Array.isArray(res.data.data) ? res.data.data : res.data)
-                .catch(() => []) // Jika error, return array kosong biar ga crash
+                .catch(() => []) 
           );
 
-          // Tunggu semua request sub pekerjaan selesai
           const results = await Promise.all(promises);
-          
-          // Gabungkan semua hasil menjadi satu array besar
           const allSubs = results.flat();
-          
-          // Hapus duplikat (jika ada sub yg sama terambil 2x)
           const uniqueSubs = Array.from(new Map(allSubs.map((item: any) => [item.id_sub, item])).values());
-          
-          // Simpan ke state subs
           setSubs(uniqueSubs as SubPekerjaan[]);
         }
 
-        // F. Terakhir, baru set Details agar form terisi
         setDetails(formattedDetails);
 
       } catch (err) {
@@ -174,10 +162,8 @@ export default function EditPengeluaran() {
   }, [id]);
 
 
-  // Helper untuk memfilter opsi di dropdown
+  // Filter Helper
   const filteredJobs = jobs.filter(j => Number(j.id_proyek) === Number(form.id_proyek));
-  
-  // Fungsi ini akan mencari sub pekerjaan di state 'subs' yang sudah kita pre-fetch tadi
   const filteredSubs = (jobId: number | '') => {
       if (!jobId) return [];
       return subs.filter(s => Number(s.id_pekerjaan) === Number(jobId));
@@ -198,7 +184,15 @@ export default function EditPengeluaran() {
   const addDetail = () => {
     setDetails(prev => [
       ...prev,
-      { nama_item: '', satuan: '', banyak: 1, harga_satuan: 0, allow_partial: false, distribusi: [{ id_pekerjaan: '', id_sub: '', rasio_penggunaan: 100 }] }
+      { 
+        nama_item: '', 
+        satuan: '', 
+        banyak: 1, 
+        harga_satuan: 0, 
+        allow_partial: false, 
+        // ✅ FIX: Tambahkan 'as Distribusi' agar TypeScript tidak error saat build
+        distribusi: [{ id_pekerjaan: '', id_sub: '', rasio_penggunaan: 100 } as Distribusi] 
+      }
     ]);
   };
 
@@ -215,16 +209,13 @@ export default function EditPengeluaran() {
         
         newDist[d] = { ...newDist[d], [key]: value };
 
-        // Jika user GANTI Pekerjaan, ambil sub-pekerjaan baru
         if (key === 'id_pekerjaan') {
-            newDist[d].id_sub = ''; // Reset pilihan sub
-            
+            newDist[d].id_sub = ''; 
             if (value) {
                 api.get(`/pekerjaan/${value}/sub-pekerjaan`)
                    .then(res => {
                        const newSubs = Array.isArray(res.data.data) ? res.data.data : res.data;
                        setSubs(curr => {
-                           // Gabungkan data baru dengan yang lama agar opsi lain tidak hilang
                            const combined = [...curr, ...newSubs];
                            return Array.from(new Map(combined.map(item => [item.id_sub, item])).values());
                        });
@@ -242,7 +233,9 @@ export default function EditPengeluaran() {
       if (total < 100 && !details[i].allow_partial) {
           setDetails(prev => {
               const copy = [...prev];
-              const newDist = [...copy[i].distribusi, { id_pekerjaan: '', id_sub: '', rasio_penggunaan: 100 - total }];
+              // ✅ FIX: Tambahkan 'as Distribusi' agar TypeScript tidak error saat build
+              const newItem = { id_pekerjaan: '', id_sub: '', rasio_penggunaan: 100 - total } as Distribusi;
+              const newDist = [...copy[i].distribusi, newItem];
               copy[i] = { ...copy[i], distribusi: newDist };
               return copy;
           });
@@ -347,9 +340,6 @@ export default function EditPengeluaran() {
                         disabled={!dist.id_pekerjaan}
                     >
                          <option value="">Sub Pekerjaan</option>
-                         {/* 🔥 KARENA KITA SUDAH FETCH SEMUA SUB PEKERJAAN DI USEEFFECT,
-                            FILTEREDSUBS SEKARANG SUDAH PUNYA DATANYA!
-                         */}
                          {filteredSubs(Number(dist.id_pekerjaan)).map(sub => <option key={sub.id_sub} value={sub.id_sub}>{sub.nama_sub}</option>)}
                      </select>
 
@@ -361,7 +351,9 @@ export default function EditPengeluaran() {
              ))}
          </div>
       ))}
+
       <button onClick={addDetail} className="w-full p-2 border-dashed border-2 text-gray-500 mb-4" style={{width:'100%', padding:10, border:'2px dashed #ccc', marginBottom:20}}>+ Tambah Item</button>
+
       <div className="flex justify-end gap-2" style={{display:'flex', justifyContent:'flex-end', gap:10}}>
           <button onClick={() => router.back()} className="btn-secondary p-2 rounded" style={{background:'#eee', padding:'10px 20px'}}>Batal</button>
           <button onClick={handleSubmit} className="btn-primary p-2 rounded text-white" style={{background:'#2563eb', color:'white', padding:'10px 20px'}}>Simpan Perubahan</button>
