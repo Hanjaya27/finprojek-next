@@ -212,7 +212,7 @@ export default function ProfilePemilikPage() {
 
         <div className="profile-actions" style={{marginTop: 30, display: 'flex', justifyContent: 'space-between'}}>
           <button onClick={handleLogout} className="btn-outline">Logout</button>
-          <button onClick={handleDelete} className="btn-danger" style={{color:'white'}}>Hapus Akun</button>
+          <button onClick={handleDelete} className="btn-danger" style={{color:'red'}}>Hapus Akun</button>
         </div>
       </div>
     </main>
