@@ -13,33 +13,37 @@ export default function TambahProyekModal({ onClose }: { onClose: () => void }) 
     const form = e.currentTarget;
     const formData = new FormData();
 
-    // Mapping: name di HTML -> name di Database Laravel
+    // Mapping Data Input
     formData.append('nama_proyek', (form.elements.namedItem('nama') as HTMLInputElement).value);
     formData.append('lokasi', (form.elements.namedItem('lokasi') as HTMLInputElement).value);
     formData.append('biaya_kesepakatan', (form.elements.namedItem('biaya') as HTMLInputElement).value);
     formData.append('tgl_mulai', (form.elements.namedItem('tgl_mulai') as HTMLInputElement).value);
     formData.append('tgl_selesai', (form.elements.namedItem('tgl_selesai') as HTMLInputElement).value);
 
-    // Dokumen MOU (Opsional)
+    // Dokumen MOU
     const mouInput = form.elements.namedItem('mou') as HTMLInputElement;
     if (mouInput.files && mouInput.files.length > 0) {
       formData.append('dokumen_mou', mouInput.files[0]);
     }
 
     try {
-      // ✅ FIX 1: Hapus setting headers manual. Biarkan Axios yang atur.
-      // ✅ FIX 2: Hapus manual token (api helper sudah handle).
+      // 🔥 PERBAIKAN DISINI:
+      // 1. Tidak perlu ambil token manual (api helper sudah otomatis handle)
+      // 2. JANGAN set header Content-Type manual!
+      
       await api.post('/proyek', formData);
     
       alert('Proyek berhasil ditambahkan');
       onClose();
+      // Gunakan reload window agar data fresh
       window.location.reload(); 
+      
     } catch (err: any) {
       console.error(err);
       
       const errorData = err.response?.data;
       
-      // ✅ FIX 3: Tampilkan pesan error detail dari Laravel agar tahu salahnya dimana
+      // Tampilkan error detail jika ada validasi dari Laravel
       if (errorData?.errors) {
          const msg = Object.values(errorData.errors).flat().join('\n');
          alert(`Gagal Validasi:\n${msg}`);
