@@ -16,12 +16,9 @@ export default function EditAdminPage() {
   });
 
   useEffect(() => {
-    // ✅ FIX: Hapus '/api' dan gunakan endpoint '/admin/users'
     api.get(`/admin/users/${id}`)
       .then(res => {
-        // ✅ FIX: Handle Wrapper (.data.data)
         const data = res.data.data || res.data;
-        
         setForm({
           nama_lengkap: data.nama_lengkap,
           email: data.email,
@@ -40,14 +37,30 @@ export default function EditAdminPage() {
     setLoading(true);
 
     try {
-      // ✅ FIX: Hapus '/api' dan gunakan endpoint '/admin/users'
-      await api.put(`/admin/users/${id}`, form);
+      // ✅ FIX: Kirim 'role' agar validasi backend lolos
+      const payload = {
+        ...form,
+        role: 'admin', // Wajib dikirim ulang untuk validasi Laravel
+        is_premium: 0  // Kirim default 0 agar aman
+      };
+
+      await api.put(`/admin/users/${id}`, payload);
       
       alert('Admin berhasil diperbarui');
       router.push('/admin/admins');
+
     } catch (err: any) {
       console.error(err);
-      alert(err.response?.data?.message || 'Gagal update admin');
+      
+      // ✅ FIX: Tampilkan pesan error detail dari Laravel
+      const errorData = err.response?.data;
+      if (errorData?.errors) {
+         // Jika error validasi (misal: nama kosong, email duplikat)
+         const msg = Object.values(errorData.errors).flat().join('\n');
+         alert(`Gagal Update:\n${msg}`);
+      } else {
+         alert(errorData?.message || 'Gagal update admin');
+      }
     } finally {
       setLoading(false);
     }
@@ -85,7 +98,7 @@ export default function EditAdminPage() {
             <input 
                 className="form-control" style={{width:'100%', padding:10, marginTop:5, background:'#eee', border:'1px solid #ccc', borderRadius:4}}
                 value={form.email} 
-                disabled 
+                disabled // Email biasanya tidak boleh diganti sembarangan
             />
           </div>
 
