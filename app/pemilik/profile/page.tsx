@@ -31,7 +31,6 @@ export default function ProfilePemilikPage() {
     try {
       const res = await api.get('/pemilik/profile');
       
-      // Handle Wrapper
       const data: UserProfile = res.data.data || res.data;
 
       setForm(prev => ({
@@ -43,7 +42,6 @@ export default function ProfilePemilikPage() {
         foto_profil: null,
       }));
 
-      // Set Preview dengan Timestamp agar tidak cache
       if (data.foto_profil) {
         const timestamp = new Date().getTime();
         const url = data.foto_profil.startsWith('http') 
@@ -57,8 +55,6 @@ export default function ProfilePemilikPage() {
 
     } catch (err) {
       console.error(err);
-      // Jika error 401, redirect
-      // router.push('/auth/login');
     } finally {
       setLoading(false);
     }
@@ -103,20 +99,16 @@ export default function ProfilePemilikPage() {
     if (form.foto_profil) fd.append('foto_profil', form.foto_profil);
 
     try {
-      // Gunakan api.post
       const res = await api.post('/pemilik/profile', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      // Update LocalStorage agar sidebar langsung berubah
       const newData = res.data.data || res.data;
       localStorage.setItem('user', JSON.stringify(newData));
-      
-      // Trigger custom event agar layout tahu ada perubahan (Optional, tapi bagus)
       window.dispatchEvent(new Event('storage'));
 
       alert('Profil berhasil diperbarui');
-      fetchProfile(); // Refresh data
+      fetchProfile(); 
 
     } catch (err: any) {
       console.error(err);
@@ -131,7 +123,7 @@ export default function ProfilePemilikPage() {
   };
 
   const handleDelete = async () => {
-    if (!confirm('Yakin ingin menghapus akun?')) return;
+    if (!confirm('Yakin ingin menghapus akun? Data tidak bisa dikembalikan.')) return;
     try {
         await api.delete('/pemilik/profile');
         localStorage.clear();
@@ -211,8 +203,25 @@ export default function ProfilePemilikPage() {
         </form>
 
         <div className="profile-actions" style={{marginTop: 30, display: 'flex', justifyContent: 'space-between'}}>
-          <button onClick={handleLogout} className="btn-outline">Logout</button>
-          <button onClick={handleDelete} className="btn-danger" style={{color:'red'}}>Hapus Akun</button>
+          <button type="button" onClick={handleLogout} className="btn-outline">Logout</button>
+          
+          {/* ✅ PERBAIKAN TOMBOL HAPUS (Merah Background, Putih Teks) */}
+          <button 
+            type="button" 
+            onClick={handleDelete} 
+            className="btn-danger" 
+            style={{
+                backgroundColor: '#dc2626', // Merah
+                color: '#ffffff',           // Putih (Kontras)
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: 6,
+                cursor: 'pointer'
+            }}
+          >
+            Hapus Akun
+          </button>
+
         </div>
       </div>
     </main>
