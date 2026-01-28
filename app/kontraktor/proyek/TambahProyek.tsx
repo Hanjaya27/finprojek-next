@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import api from '@/lib/axios';
 
 export default function TambahProyekModal({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(false);
@@ -12,6 +11,10 @@ export default function TambahProyekModal({ onClose }: { onClose: () => void }) 
 
     const form = e.currentTarget;
     const formData = new FormData();
+
+    // 1. Ambil Token Manual (Karena kita tidak pakai api helper/axios untuk ini)
+    // Pastikan key local storage sesuai dengan aplikasi login Anda (biasanya 'token' atau 'auth_token')
+    const token = localStorage.getItem('token'); 
 
     // Mapping Data Input
     formData.append('nama_proyek', (form.elements.namedItem('nama') as HTMLInputElement).value);
@@ -27,19 +30,33 @@ export default function TambahProyekModal({ onClose }: { onClose: () => void }) 
     }
 
     try {
-      // 🔥 PERBAIKAN DISINI:
-      // 1. Tidak perlu ambil token manual (api helper sudah otomatis handle)
-      // 2. JANGAN set header Content-Type manual!
-      
-      await api.post('/proyek', formData);
+      // 🔥 GUNAKAN FETCH (Bukan API/Axios)
+      // Fetch otomatis mengatur boundary multipart/form-data dengan benar tanpa gangguan config lain
+      const response = await fetch('https://api.finprojek.web.id/api/proyek', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+            // PENTING: JANGAN PERNAH TULIS Content-Type DISINI!
+            // Biarkan browser yang otomatis menambahkannya.
+        },
+        body: formData
+      });
+
+      const result = await response.json();
+
+      // Cek jika response tidak OK (bukan 200-299)
+      if (!response.ok) {
+        // Lempar error agar ditangkap blok catch di bawah
+        throw { response: { data: result } };
+      }
     
       alert('Proyek berhasil ditambahkan');
       onClose();
-      // Gunakan reload window agar data fresh
       window.location.reload(); 
       
     } catch (err: any) {
-      console.error(err);
+      console.error("Error Upload:", err);
       
       const errorData = err.response?.data;
       
