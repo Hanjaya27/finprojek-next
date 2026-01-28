@@ -53,7 +53,7 @@ export default function EditPengeluaran() {
   const [projects, setProjects] = useState<Proyek[]>([]);
   const [jobs, setJobs] = useState<Pekerjaan[]>([]);
   
-  // State untuk menampung semua opsi sub-pekerjaan yang dibutuhkan
+  // State menampung semua opsi sub-pekerjaan
   const [subs, setSubs] = useState<SubPekerjaan[]>([]); 
 
   const [form, setForm] = useState({
@@ -66,30 +66,27 @@ export default function EditPengeluaran() {
   const [details, setDetails] = useState<Detail[]>([]);
 
   /* =========================
-     1. FETCH DATA UTAMA (LOADER)
+     1. FETCH DATA UTAMA
   ========================== */
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
 
-        // A. Ambil Data Master & Data Pengeluaran Berbarengan
         const [resProyek, resPekerjaan, resPengeluaran] = await Promise.all([
           api.get('/proyek'),
           api.get('/pekerjaan'),
           api.get(`/pengeluaran/${id}`)
         ]);
 
-        // B. Set Data Master Proyek & Pekerjaan
         const projectsData = Array.isArray(resProyek.data.data) ? resProyek.data.data : resProyek.data;
         const jobsData = Array.isArray(resPekerjaan.data.data) ? resPekerjaan.data.data : resPekerjaan.data;
         
         setProjects(projectsData);
         setJobs(jobsData);
 
-        // C. Proses Data Pengeluaran
         const raw = resPengeluaran.data.data || resPengeluaran.data; 
-        const p = raw.pengeluaran || raw; // Handle struktur data yg mungkin beda
+        const p = raw.pengeluaran || raw; 
         
         setForm({
           no_nota: p.no_nota ?? '',
@@ -99,8 +96,6 @@ export default function EditPengeluaran() {
         });
 
         const detailsData = raw.details || [];
-        
-        // D. KUMPULKAN ID PEKERJAAN YANG DIPAKAI
         const jobIdsToFetch = new Set<number>();
 
         const formattedDetails = detailsData.map((d: any): Detail => {
@@ -134,7 +129,6 @@ export default function EditPengeluaran() {
           };
         });
 
-        // E. FETCH SUB PEKERJAAN SEKALIGUS (Pre-fetching)
         if (jobIdsToFetch.size > 0) {
           const promises = Array.from(jobIdsToFetch).map(jobId => 
              api.get(`/pekerjaan/${jobId}/sub-pekerjaan`)
@@ -162,7 +156,6 @@ export default function EditPengeluaran() {
   }, [id]);
 
 
-  // Filter Helper
   const filteredJobs = jobs.filter(j => Number(j.id_proyek) === Number(form.id_proyek));
   const filteredSubs = (jobId: number | '') => {
       if (!jobId) return [];
@@ -171,7 +164,7 @@ export default function EditPengeluaran() {
 
 
   /* =========================
-     HANDLERS (Update & Add)
+     HANDLERS 
   ========================== */
   const updateDetail = <K extends keyof Detail>(i: number, key: K, value: Detail[K]) => {
     setDetails(prev => {
@@ -190,7 +183,7 @@ export default function EditPengeluaran() {
         banyak: 1, 
         harga_satuan: 0, 
         allow_partial: false, 
-        // ✅ FIX: Tambahkan 'as Distribusi' agar TypeScript tidak error saat build
+        // ✅ FIX TYPE: Tambahkan 'as Distribusi' agar tidak error saat build
         distribusi: [{ id_pekerjaan: '', id_sub: '', rasio_penggunaan: 100 } as Distribusi] 
       }
     ]);
@@ -233,7 +226,7 @@ export default function EditPengeluaran() {
       if (total < 100 && !details[i].allow_partial) {
           setDetails(prev => {
               const copy = [...prev];
-              // ✅ FIX: Tambahkan 'as Distribusi' agar TypeScript tidak error saat build
+              // ✅ FIX TYPE: Tambahkan 'as Distribusi'
               const newItem = { id_pekerjaan: '', id_sub: '', rasio_penggunaan: 100 - total } as Distribusi;
               const newDist = [...copy[i].distribusi, newItem];
               copy[i] = { ...copy[i], distribusi: newDist };
@@ -245,7 +238,6 @@ export default function EditPengeluaran() {
   const handleSubmit = async () => {
       if(loading) return;
 
-      // Validasi
       for (const d of details) {
           if (!d.nama_item) return alert("Nama item wajib diisi");
           const total = d.distribusi.reduce((s, r) => s + Number(r.rasio_penggunaan), 0);
