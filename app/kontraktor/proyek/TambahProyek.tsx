@@ -12,11 +12,21 @@ export default function TambahProyekModal({ onClose }: { onClose: () => void }) 
     const form = e.currentTarget;
     const formData = new FormData();
 
-    // 1. Ambil Token Manual (Karena kita tidak pakai api helper/axios untuk ini)
-    // Pastikan key local storage sesuai dengan aplikasi login Anda (biasanya 'token' atau 'auth_token')
-    const token = localStorage.getItem('token'); 
+    // 🔍 DEBUG TOKEN (Cek nama key di LocalStorage Anda!)
+    // Kita coba ambil dari beberapa kemungkinan nama key
+    const token = localStorage.getItem('token') || localStorage.getItem('auth_token') || localStorage.getItem('access_token');
 
-    // Mapping Data Input
+    console.log("Cek Token:", token); // <-- Cek console browser, harusnya muncul kode panjang
+
+    if (!token) {
+        alert("Sesi login tidak ditemukan/kadaluarsa. Silakan login ulang.");
+        setLoading(false);
+        // Opsional: Redirect ke login
+        // window.location.href = '/auth/login'; 
+        return;
+    }
+
+    // Mapping Data
     formData.append('nama_proyek', (form.elements.namedItem('nama') as HTMLInputElement).value);
     formData.append('lokasi', (form.elements.namedItem('lokasi') as HTMLInputElement).value);
     formData.append('biaya_kesepakatan', (form.elements.namedItem('biaya') as HTMLInputElement).value);
@@ -30,37 +40,39 @@ export default function TambahProyekModal({ onClose }: { onClose: () => void }) 
     }
 
     try {
-      // 🔥 GUNAKAN FETCH (Bukan API/Axios)
-      // Fetch otomatis mengatur boundary multipart/form-data dengan benar tanpa gangguan config lain
       const response = await fetch('https://api.finprojek.web.id/api/proyek', {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${token}`, // Token ditempel disini
             'Accept': 'application/json',
-            // PENTING: JANGAN PERNAH TULIS Content-Type DISINI!
-            // Biarkan browser yang otomatis menambahkannya.
         },
         body: formData
       });
 
       const result = await response.json();
 
-      // Cek jika response tidak OK (bukan 200-299)
       if (!response.ok) {
-        // Lempar error agar ditangkap blok catch di bawah
+        // Jika 401, berarti token salah/expired
+        if (response.status === 401) {
+            throw new Error("Sesi kadaluarsa. Silakan login ulang.");
+        }
         throw { response: { data: result } };
       }
     
-      alert('Proyek berhasil ditambahkan');
+      alert('Proyek berhasil ditambahkan!');
       onClose();
       window.location.reload(); 
       
     } catch (err: any) {
       console.error("Error Upload:", err);
       
+      // Handle Error Token
+      if (err.message === "Sesi kadaluarsa. Silakan login ulang.") {
+          alert(err.message);
+          return;
+      }
+
       const errorData = err.response?.data;
-      
-      // Tampilkan error detail jika ada validasi dari Laravel
       if (errorData?.errors) {
          const msg = Object.values(errorData.errors).flat().join('\n');
          alert(`Gagal Validasi:\n${msg}`);
